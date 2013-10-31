@@ -18,9 +18,12 @@ setup(name='pytask',
       include_package_data=True,
       zip_safe=False,
       install_requires=[
-          # -*- Extra requirements: -*-
+          'SQLAlchemy',
+          'sqla_declarative',
       ],
       entry_points="""
       # -*- Entry points: -*-
+      [console_scripts]
+      pytask = pytask.client:main
       """,
       )
