@@ -1,6 +1,7 @@
 import models
 import transaction
 import datetime
+import json
 
 # Bash color:
 # http://misc.flogisoft.com/bash/tip_colors_and_formatting
@@ -71,14 +72,17 @@ def edit(idtask):
     task = models.Task.query.filter_by(idtask=idtask).one()
     return {
         'editor': True,
-        'content': task.name,
+        'content': {'name': task.name},
         'idtask': idtask,
         'action': 'update'}
 
 
-def update(idtask, *args):
-    print args
+def update(*args):
+    lis = args[0].split(' ')
+    idtask = lis[0]
+    dic = json.loads(' '.join(lis[1:]))
     with transaction.manager:
-        task = models.Task.query.filter_by(idtask=idtask).one()
-        task.name = args[0]
+        task = models.Task.query.filter_by(idtask=int(idtask)).one()
+        task.name = dic['name']
         models.DBSession.add(task)
+    return {'stdout': green('Task updated.')}
