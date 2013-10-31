@@ -6,6 +6,18 @@ import datetime
 # http://misc.flogisoft.com/bash/tip_colors_and_formatting
 
 
+def add_color(color, s):
+    return '\x1b[01;%sm%s\x1b[00m' % (color, s)
+
+
+def green(s):
+    return add_color(32, s)
+
+
+def blue(s):
+    return add_color(34, s)
+
+
 def ls(*args):
     rows = models.Task.query.all()
     s = ''
@@ -18,7 +30,7 @@ def add(name):
     with transaction.manager:
         task = models.Task(name=name)
         models.DBSession.add(task)
-    return 'Task added.'
+    return green('Task added.')
 
 
 def active(*args):
@@ -28,11 +40,14 @@ def active(*args):
 
 def info(idtask):
     task = models.Task.query.filter_by(idtask=idtask).one()
-    s = '%s\n' % task.name
+    lis = [blue(task.name)]
     tasktimes = models.TaskTime.query.filter_by(idtask=idtask).all()
     for row in tasktimes:
-        s += '%s: %s\n' % (row.start_date, row.end_date or 'Active')
-    return s
+        if not row.end_date:
+            lis += [blue('%s: active' % row.start_date)]
+        else:
+            lis += ['%s: %s' % (row.start_date, row.end_date)]
+    return '\n'.join(lis)
 
 
 def start(idtask):
@@ -40,7 +55,7 @@ def start(idtask):
     with transaction.manager:
         tasktime = models.TaskTime(idtask=idtask, start_date=datetime.datetime.now())
         models.DBSession.add(tasktime)
-    return 'Task %s started.' % idtask
+    return green('Task %s started.' % idtask)
 
 
 def stop(idtask):
@@ -49,4 +64,4 @@ def stop(idtask):
         tasktime = models.TaskTime.query.filter_by(idtask=idtask, end_date=None).one()
         tasktime.end_date = datetime.datetime.now()
         models.DBSession.add(tasktime)
-    return 'Task %s stopped.' % idtask
+    return green('Task %s stopped.' % idtask)
