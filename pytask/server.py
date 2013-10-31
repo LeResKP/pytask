@@ -1,5 +1,6 @@
 import SocketServer
 import cmd
+import json
 
 
 def run_cmd(data):
@@ -9,7 +10,7 @@ def run_cmd(data):
     func = getattr(cmd, method, None)
     if not func:
         return 'Undefined method'
-    return func(args)
+    return json.dumps(func(args))
 
 
 class TaskTCPHandler(SocketServer.BaseRequestHandler):
@@ -26,14 +27,21 @@ class TaskTCPHandler(SocketServer.BaseRequestHandler):
         self.data = self.request.recv(1024).strip()
         # print "{} wrote:".format(self.client_address[0])
         # print self.data
-        self.request.sendall(run_cmd(self.data))
+        d = run_cmd(self.data)
+        self.request.sendall(d)
 
-if __name__ == "__main__":
+
+def main():
     HOST, PORT = "localhost", 9999
 
     # Create the server, binding to localhost on port 9999
     server = SocketServer.TCPServer((HOST, PORT), TaskTCPHandler)
 
+    print 'Server running on %s:%s' % (HOST, PORT)
     # Activate the server; this will keep running until you
     # interrupt the program with Ctrl-C
     server.serve_forever()
+
+
+if __name__ == "__main__":
+    main()

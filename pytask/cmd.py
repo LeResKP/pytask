@@ -23,19 +23,19 @@ def ls(*args):
     s = ''
     for row in rows:
         s += '%i: %s\n' % (row.idtask, row.name)
-    return s
+    return {'stdout': s}
 
 
 def add(name):
     with transaction.manager:
         task = models.Task(name=name)
         models.DBSession.add(task)
-    return green('Task added.')
+    return {'stdout': green('Task added.')}
 
 
 def active(*args):
     tasktime = models.TaskTime.query.filter_by(end_date=None).one()
-    return info(tasktime.idtask)
+    return {'stdout': info(tasktime.idtask)}
 
 
 def info(idtask):
@@ -47,7 +47,7 @@ def info(idtask):
             lis += [blue('%s: active' % row.start_date)]
         else:
             lis += ['%s: %s' % (row.start_date, row.end_date)]
-    return '\n'.join(lis)
+    return {'stdout': '\n'.join(lis)}
 
 
 def start(idtask):
@@ -55,7 +55,7 @@ def start(idtask):
     with transaction.manager:
         tasktime = models.TaskTime(idtask=idtask, start_date=datetime.datetime.now())
         models.DBSession.add(tasktime)
-    return green('Task %s started.' % idtask)
+    return {'stdout': green('Task %s started.' % idtask)}
 
 
 def stop(idtask):
@@ -64,4 +64,21 @@ def stop(idtask):
         tasktime = models.TaskTime.query.filter_by(idtask=idtask, end_date=None).one()
         tasktime.end_date = datetime.datetime.now()
         models.DBSession.add(tasktime)
-    return green('Task %s stopped.' % idtask)
+    return {'stdout': green('Task %s stopped.' % idtask)}
+
+
+def edit(idtask):
+    task = models.Task.query.filter_by(idtask=idtask).one()
+    return {
+        'editor': True,
+        'content': task.name,
+        'idtask': idtask,
+        'action': 'update'}
+
+
+def update(idtask, *args):
+    print args
+    with transaction.manager:
+        task = models.Task.query.filter_by(idtask=idtask).one()
+        task.name = args[0]
+        models.DBSession.add(task)
