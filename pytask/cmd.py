@@ -40,7 +40,8 @@ def ls(*args):
     return {'stdout': s}
 
 
-def add(description):
+def add(description, project=None):
+    print project
     with transaction.manager:
         task = models.Task(description=description)
         models.DBSession.add(task)

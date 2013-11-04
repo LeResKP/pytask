@@ -39,6 +39,16 @@ def parse_cmd_line(line):
     dic = AVAILABLE_CMDS[func]
 
     kw = {}
+    to_remove = []
+    for v in lis:
+        for a in dic['non_required_args']:
+            if v.startswith('%s:' % a):
+                kw[a] = v.replace('%s:' % a, '')
+                to_remove += [v]
+
+    for v in to_remove:
+        lis.remove(v)
+
     for k, v in zip(dic['args'], lis):
         kw[k] = v
 
