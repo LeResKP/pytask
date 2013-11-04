@@ -1,16 +1,61 @@
 import SocketServer
 import cmd
 import json
+import inspect
+
+
+AVAILABLE_CMDS = {}
+
+def get_args(func):
+    argspec = inspect.getargspec(func)
+    required_args = argspec.args
+    non_required_args = []
+    if argspec.defaults:
+        required_args = argspec.args[:len(argspec.defaults)]
+        non_required_args = argspec.args[len(argspec.defaults):]
+    return required_args, non_required_args, argspec.args
+
+
+AVAILABLE_CMDS = {}
+for k, v in cmd.__dict__.items():
+    if k.startswith('_'):
+        continue
+    if inspect.isfunction(v):
+        required_args, non_required_args, args = get_args(v)
+        AVAILABLE_CMDS[k] = {
+            'func': v,
+            'args': args,
+            'required_args': required_args,
+            'non_required_args': non_required_args,
+        }
+
+
+def parse_cmd_line(line):
+    lis = line.split(' ')
+    func = lis.pop(0)
+    if func not in AVAILABLE_CMDS:
+        return 'Unavailable command %s' % func
+
+    dic = AVAILABLE_CMDS[func]
+
+    kw = {}
+    for k, v in zip(dic['args'], lis):
+        kw[k] = v
+
+    if len(lis) > len(dic['args']):
+        kw[k] += ' %s' %  (' '.join(lis[len(dic['args']):]))
+
+    for k in dic['required_args']:
+        if k not in kw:
+            raise Exception('Missing required arg %s' % k)
+
+    return func, kw
 
 
 def run_cmd(data):
-    lis = data.split(' ')
-    method = lis[0]
-    args = ' '.join(lis[1:])
-    func = getattr(cmd, method, None)
-    if not func:
-        return 'Undefined method'
-    return json.dumps(func(args))
+    func, kw = parse_cmd_line(data)
+    func = getattr(cmd, func)
+    return json.dumps(func(**kw))
 
 
 class TaskTCPHandler(SocketServer.BaseRequestHandler):
