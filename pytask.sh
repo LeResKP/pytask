@@ -10,6 +10,7 @@ _cmd_cfg=(
 	'ls      alias'
 	'active  alias'
 	'edit    alias'
+	'modify  alias'
 )
 
 for cfg in "${_cmd_cfg[@]}" ; do

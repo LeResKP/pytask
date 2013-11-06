@@ -52,6 +52,7 @@ class Task(Base):
     priority = Column(String(255), nullable=True)
     status = Column(String(255), nullable=True)
 
+    project = relationship('Project', backref="tasks", uselist=False)
     times = relationship('TaskTime', backref=backref("task", uselist=False))
 
 

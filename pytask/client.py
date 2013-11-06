@@ -4,6 +4,7 @@ import socket
 import json
 import tempfile
 import subprocess
+from colorterm import colorterm
 
 
 def usage(argv):
@@ -33,23 +34,26 @@ def doit(host, port, data):
     res = get_response(host, port, data)
     if 'editor' in res:
         n, f = tempfile.mkstemp()
-        # print res['content']
-        # open(f, 'w').write(res['content'])
         with open(f, 'w') as outfile:
             json.dump(res['content'], outfile)
         subprocess.Popen(['vi %s' % f], shell=True).wait()
         # os.popen('vim %s' % f)
         new = open(f, 'r').read()
-        # print new
-        # print f
-        # print type(f)
         res['content'] = new
         c = '%(action)s %(idtask)s %(content)s' % res
-        # print c
         doit(host, port, c)
-
+    elif 'confirm' in res:
+        s = raw_input(res['stdout'])
+        if s == 'yes':
+            res['confirm'] = True
+            c = '%(action)s %(idtask)s confirm:%(confirm)s' % res
+            doit(host, port, c)
+        else:
+            print colorterm.red('Operation aborted')
     elif 'stdout' in res:
         print res['stdout']
+    elif 'stderr' in res:
+        print >> sys.stderr, res['stderr']
     else:
         print 'Response not supported'
 

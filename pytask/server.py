@@ -1,10 +1,17 @@
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+
 import SocketServer
 import cmd
 import json
 import inspect
+import re
 
 
 AVAILABLE_CMDS = {}
+
+regex_dq = re.compile(r'("[^"]+")')
+
 
 def get_args(func):
     argspec = inspect.getargspec(func)
@@ -13,7 +20,12 @@ def get_args(func):
     if argspec.defaults:
         required_args = argspec.args[:len(argspec.defaults)]
         non_required_args = argspec.args[len(argspec.defaults):]
-    return required_args, non_required_args, argspec.args
+    return {
+        'required_args': required_args,
+        'non_required_args': non_required_args,
+        'args': argspec.args,
+        'func': func,
+    }
 
 
 AVAILABLE_CMDS = {}
@@ -21,20 +33,20 @@ for k, v in cmd.__dict__.items():
     if k.startswith('_'):
         continue
     if inspect.isfunction(v):
-        required_args, non_required_args, args = get_args(v)
-        AVAILABLE_CMDS[k] = {
-            'func': v,
-            'args': args,
-            'required_args': required_args,
-            'non_required_args': non_required_args,
-        }
+        dic = get_args(v)
+        AVAILABLE_CMDS[k] = dic
+
+
+def replacer(match):
+    return match.group(1).replace(' ', u'µ')
 
 
 def parse_cmd_line(line):
+    line = regex_dq.sub(replacer, line)
     lis = line.split(' ')
     func = lis.pop(0)
     if func not in AVAILABLE_CMDS:
-        return 'Unavailable command %s' % func
+        raise Exception('Unavailable command %s' % func)
 
     dic = AVAILABLE_CMDS[func]
 
@@ -43,17 +55,21 @@ def parse_cmd_line(line):
     for v in lis:
         for a in dic['non_required_args']:
             if v.startswith('%s:' % a):
-                kw[a] = v.replace('%s:' % a, '')
+                value = v.replace('%s:' % a, '').replace(u'µ', ' ')
+                if value.startswith('"') and value.endswith('"'):
+                    value = value[1:-1]
+                kw[a] = value
                 to_remove += [v]
 
     for v in to_remove:
         lis.remove(v)
 
-    for k, v in zip(dic['args'], lis):
+    lis = [l.replace(u'µ', ' ') for l in lis]
+    for k, v in zip(dic['required_args'], lis):
         kw[k] = v
 
-    if len(lis) > len(dic['args']):
-        kw[k] += ' %s' %  (' '.join(lis[len(dic['args']):]))
+    if kw and len(lis) > len(dic['required_args']):
+        kw[k] += ' %s' % (' '.join(lis[len(dic['required_args']):]))
 
     for k in dic['required_args']:
         if k not in kw:

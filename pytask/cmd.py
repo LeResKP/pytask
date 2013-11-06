@@ -2,12 +2,12 @@ import models
 import transaction
 import datetime
 import json
-from colorterm import colorterm
+from colorterm import colorterm, Table
 import sqlalchemy.orm.exc as sqla_exc
 
 
 def _info(s):
-    return colorterm.blue(s)
+    return colorterm.cyan(s)
 
 
 def _success(s):
@@ -25,30 +25,33 @@ def _get_active():
         return None
 
 
-def ls(*args):
+def ls():
     rows = models.Task.query.all()
-    s = ''
     active_idtask = None
     active = _get_active()
     if active:
         active_idtask = active.idtask
+    table = Table('ID', 'Project', 'Description')
     for row in rows:
+        convert = None
         if row.idtask == active_idtask:
-            s += _info('%i: %s\n' % (row.idtask, row.description))
-        else:
-            s += '%i: %s\n' % (row.idtask, row.description)
-    return {'stdout': s}
+            convert = colorterm.cyan
+        table.add_row({
+            'ID': row.idtask,
+            'Project': (row.project and row.project.name or None),
+            'Description': row.description,
+        }, convert)
+    return {'stdout': table.display()}
 
 
 def add(description, project=None):
-    print project
     with transaction.manager:
         task = models.Task(description=description)
         models.DBSession.add(task)
     return {'stdout': _success('Task added.')}
 
 
-def active(*args):
+def active():
     try:
         tasktime = _get_active()
     except sqla_exc.MultipleResultsFound, e:
@@ -60,7 +63,12 @@ def active(*args):
     return {'stdout': _info('Current task: %s' % tasktime.idtask)}
 
 
-def info(idtask):
+def info(idtask=None):
+    if not idtask:
+        active = _get_active()
+        if not active:
+            return {'stderr': _failure('No idtask given and no active task')}
+        task = active.task
     task = models.Task.query.filter_by(idtask=idtask).one()
     lis = [colorterm.blue(task.description)]
     tasktimes = models.TaskTime.query.filter_by(idtask=idtask).all()
@@ -72,8 +80,23 @@ def info(idtask):
     return {'stdout': '\n'.join(lis)}
 
 
-def start(idtask):
+def start(idtask, confirm=None):
     # TODO: check the idtask exist and no other is started
+    active = _get_active()
+    if active:
+        if confirm:
+            stop()
+        else:
+            if active.idtask == int(idtask):
+                return {'stdout': _info('Task %s is already actived.' % idtask)}
+            return {
+                'confirm': True,
+                'stdout': (
+                    'Task %s is active, '
+                    'would you want to stop it (yes to confirm)?' % idtask),
+                'action': 'start',
+                'idtask': idtask,
+            }
     with transaction.manager:
         tasktime = models.TaskTime(idtask=idtask, start_date=datetime.datetime.now())
         models.DBSession.add(tasktime)
@@ -100,17 +123,33 @@ def edit(idtask):
     task = models.Task.query.filter_by(idtask=idtask).one()
     return {
         'editor': True,
-        'content': {'name': task.name},
+        'content': {'description': task.description},
         'idtask': idtask,
         'action': 'update'}
 
 
-def update(*args):
-    lis = args[0].split(' ')
-    idtask = lis[0]
-    dic = json.loads(' '.join(lis[1:]))
+def update(idtask, json_content):
+    dic = json.loads(json_content)
     with transaction.manager:
         task = models.Task.query.filter_by(idtask=int(idtask)).one()
-        task.name = dic['name']
+        task.description = dic['description']
+        models.DBSession.add(task)
+    return {'stdout': _success('Task %s updated.' % idtask)}
+
+
+def modify(idtask, project=None):
+    with transaction.manager:
+        task = models.Task.query.filter_by(idtask=int(idtask)).one()
+        if project is not None:
+            if not project:
+                task.project = None
+            else:
+                try:
+                    pobj = models.Project.query.filter_by(name=project).one()
+                except sqla_exc.NoResultFound:
+                    pobj = models.Project(name=project)
+                    models.DBSession.add(pobj)
+                task.project = pobj
+
         models.DBSession.add(task)
     return {'stdout': _success('Task %s updated.' % idtask)}
