@@ -11,6 +11,7 @@ _cmd_cfg=(
 	'active  alias'
 	'edit    alias'
 	'modify  alias'
+	'today   alias'
 	'r  alias'
 )
 

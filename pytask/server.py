@@ -20,12 +20,16 @@ def get_args(func):
     non_required_args = []
     defaults = argspec.defaults
     if defaults:
-        required_args = args[:len(defaults)]
-        non_required_args = args[len(defaults):]
+        if len(defaults) == len(args):
+            required_args = []
+            non_required_args = args[:]
+        else:
+            required_args = args[:len(defaults)]
+            non_required_args = args[len(defaults):]
     dic = {
         'required_args': required_args,
         'non_required_args': non_required_args,
-        'args': argspec.args,
+        'args': args,
         'func': func,
     }
     return dic

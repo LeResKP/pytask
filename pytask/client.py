@@ -22,7 +22,7 @@ def get_response(host, port, data):
         sock.connect((host, port))
         sock.sendall(data + "\n")
         # Receive data from the server and shut down
-        received = sock.recv(1024)
+        received = sock.recv(4096)
         res = json.loads(received)
     finally:
         sock.close()
