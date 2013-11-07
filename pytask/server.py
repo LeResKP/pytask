@@ -15,26 +15,32 @@ regex_dq = re.compile(r'("[^"]+")')
 
 def get_args(func):
     argspec = inspect.getargspec(func)
-    required_args = argspec.args
+    args = argspec.args[1:]
+    required_args = args[:]
     non_required_args = []
-    if argspec.defaults:
-        required_args = argspec.args[:len(argspec.defaults)]
-        non_required_args = argspec.args[len(argspec.defaults):]
-    return {
+    defaults = argspec.defaults
+    if defaults:
+        required_args = args[:len(defaults)]
+        non_required_args = args[len(defaults):]
+    dic = {
         'required_args': required_args,
         'non_required_args': non_required_args,
         'args': argspec.args,
         'func': func,
     }
+    return dic
 
 
 AVAILABLE_CMDS = {}
-for k, v in cmd.__dict__.items():
-    if k.startswith('_'):
-        continue
-    if inspect.isfunction(v):
-        dic = get_args(v)
-        AVAILABLE_CMDS[k] = dic
+for k, v in cmd.TaskCmd.available_cmds.items():
+    dic = get_args(v)
+    AVAILABLE_CMDS[k] = dic
+    # print k, v
+    # if k.startswith('_'):
+    #     continue
+    # if inspect.isfunction(v):
+    #     dic = get_args(v)
+    #     AVAILABLE_CMDS[k] = dic
 
 
 def replacer(match):
@@ -80,8 +86,10 @@ def parse_cmd_line(line):
 
 def run_cmd(data):
     func, kw = parse_cmd_line(data)
-    func = getattr(cmd, func)
+    func = getattr(cmd.TaskCmd, func)
+    print kw
     return json.dumps(func(**kw))
+
 
 
 class TaskTCPHandler(SocketServer.BaseRequestHandler):
@@ -103,6 +111,8 @@ class TaskTCPHandler(SocketServer.BaseRequestHandler):
 
 
 def main():
+
+    print cmd.TaskCmd()
     HOST, PORT = "localhost", 9999
 
     # Create the server, binding to localhost on port 9999

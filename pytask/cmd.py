@@ -2,6 +2,8 @@ import models
 import transaction
 import datetime
 import json
+import inspect
+from functools import wraps
 from colorterm import colorterm, Table
 import sqlalchemy.orm.exc as sqla_exc
 
@@ -25,131 +27,154 @@ def _get_active():
         return None
 
 
-def ls():
-    rows = models.Task.query.all()
-    active_idtask = None
-    active = _get_active()
-    if active:
-        active_idtask = active.idtask
-    table = Table('ID', 'Project', 'Description')
-    for row in rows:
-        convert = None
-        if row.idtask == active_idtask:
-            convert = colorterm.cyan
-        table.add_row({
-            'ID': row.idtask,
-            'Project': (row.project and row.project.name or None),
-            'Description': row.description,
-        }, convert)
-    return {'stdout': table.display()}
+def catch(func):
+    @wraps(func)
+    def wrapper(*args, **kw):
+        try:
+            return func(*args, **kw)
+        except Exception, e:
+            return {'stderr': _failure('%s: %s' % (func.__name__, unicode(e)))}
+    return wrapper
 
 
-def add(description, project=None):
-    with transaction.manager:
-        task = models.Task(description=description)
-        models.DBSession.add(task)
-    return {'stdout': _success('Task added.')}
+class StaticMethodMeta(type):
+
+    def __new__(mcs, name, bases, dic):
+        available_cmds = {}
+        for k, v in dic.items():
+            if k.startswith('_'):
+                continue
+            if inspect.isfunction(v):
+                dic[k] = classmethod(catch(v))
+                available_cmds[k] = v
+
+        dic['available_cmds'] = available_cmds
+        return type.__new__(mcs, name, bases, dic)
 
 
-def active():
-    try:
-        tasktime = _get_active()
-    except sqla_exc.MultipleResultsFound, e:
-        return {'stderr': _failure('There is a problem in the DB: %s' % e)}
+class TaskCmd(object):
+    __metaclass__ = StaticMethodMeta
 
-    if not tasktime:
-        return {'stdout': _success('No active task!')}
+    def r(cls):
+        raise Exception('Error')
 
-    return {'stdout': _info('Current task: %s' % tasktime.idtask)}
-
-
-def info(idtask=None):
-    if not idtask:
+    def ls(cls):
+        rows = models.Task.query.all()
+        active_idtask = None
         active = _get_active()
-        if not active:
-            return {'stderr': _failure('No idtask given and no active task')}
-        task = active.task
-    task = models.Task.query.filter_by(idtask=idtask).one()
-    lis = [colorterm.blue(task.description)]
-    tasktimes = models.TaskTime.query.filter_by(idtask=idtask).all()
-    for row in tasktimes:
-        if not row.end_date:
-            lis += [_info('%s: active' % row.start_date)]
-        else:
-            lis += ['%s: %s' % (row.start_date, row.end_date)]
-    return {'stdout': '\n'.join(lis)}
+        if active:
+            active_idtask = active.idtask
+        table = Table('ID', 'Project', 'Description')
+        for row in rows:
+            convert = None
+            if row.idtask == active_idtask:
+                convert = colorterm.cyan
+            table.add_row({
+                'ID': row.idtask,
+                'Project': (row.project and row.project.name or None),
+                'Description': row.description,
+            }, convert)
+        return {'stdout': table.display()}
 
+    def add(cls, description, project=None):
+        with transaction.manager:
+            task = models.Task(description=description)
+            models.DBSession.add(task)
+        return {'stdout': _success('Task added.')}
 
-def start(idtask, confirm=None):
-    # TODO: check the idtask exist and no other is started
-    active = _get_active()
-    if active:
-        if confirm:
-            stop()
-        else:
-            if active.idtask == int(idtask):
-                return {'stdout': _info('Task %s is already actived.' % idtask)}
-            return {
-                'confirm': True,
-                'stdout': (
-                    'Task %s is active, '
-                    'would you want to stop it (yes to confirm)?' % idtask),
-                'action': 'start',
-                'idtask': idtask,
-            }
-    with transaction.manager:
-        tasktime = models.TaskTime(idtask=idtask, start_date=datetime.datetime.now())
-        models.DBSession.add(tasktime)
-    return {'stdout': _success('Task %s started.' % idtask)}
+    def active(cls):
+        try:
+            tasktime = _get_active()
+        except sqla_exc.MultipleResultsFound, e:
+            return {'stderr': _failure('There is a problem in the DB: %s' % e)}
 
+        if not tasktime:
+            return {'stdout': _success('No active task!')}
 
-def stop():
-    try:
-        tasktime = _get_active()
-    except sqla_exc.MultipleResultsFound, e:
-        return {'stderr': _failure('There is a problem in the DB: %s' % e)}
+        return {'stdout': _info('Current task: %s' % tasktime.idtask)}
 
-    if not tasktime:
-        return {'stdout': _failure('No active task!')}
-
-    idtask = tasktime.idtask
-    with transaction.manager:
-        tasktime.end_date = datetime.datetime.now()
-        models.DBSession.add(tasktime)
-    return {'stdout': _success('Task %s stopped.' % idtask)}
-
-
-def edit(idtask):
-    task = models.Task.query.filter_by(idtask=idtask).one()
-    return {
-        'editor': True,
-        'content': {'description': task.description},
-        'idtask': idtask,
-        'action': 'update'}
-
-
-def update(idtask, json_content):
-    dic = json.loads(json_content)
-    with transaction.manager:
-        task = models.Task.query.filter_by(idtask=int(idtask)).one()
-        task.description = dic['description']
-        models.DBSession.add(task)
-    return {'stdout': _success('Task %s updated.' % idtask)}
-
-
-def modify(idtask, project=None):
-    with transaction.manager:
-        task = models.Task.query.filter_by(idtask=int(idtask)).one()
-        if project is not None:
-            if not project:
-                task.project = None
+    def info(cls, idtask=None):
+        if not idtask:
+            active = _get_active()
+            if not active:
+                return {'stderr': _failure('No idtask given and no active task')}
+            task = active.task
+        task = models.Task.query.filter_by(idtask=idtask).one()
+        lis = [colorterm.blue(task.description)]
+        tasktimes = models.TaskTime.query.filter_by(idtask=idtask).all()
+        for row in tasktimes:
+            if not row.end_date:
+                lis += [_info('%s: active' % row.start_date)]
             else:
-                try:
-                    pobj = models.Project.query.filter_by(name=project).one()
-                except sqla_exc.NoResultFound:
-                    pobj = models.Project(name=project)
-                    models.DBSession.add(pobj)
-                task.project = pobj
+                lis += ['%s: %s' % (row.start_date, row.end_date)]
+        return {'stdout': '\n'.join(lis)}
 
-        models.DBSession.add(task)
-    return {'stdout': _success('Task %s updated.' % idtask)}
+    def start(cls, idtask, confirm=None):
+        # TODO: check the idtask exist and no other is started
+        active = _get_active()
+        if active:
+            if confirm:
+                cls.stop()
+            else:
+                if active.idtask == int(idtask):
+                    return {'stdout': _info('Task %s is already actived.' % idtask)}
+                return {
+                    'confirm': True,
+                    'stdout': (
+                        'Task %s is active, '
+                        'would you want to stop it (yes to confirm)?' % idtask),
+                    'action': 'start',
+                    'idtask': idtask,
+                }
+        with transaction.manager:
+            tasktime = models.TaskTime(idtask=idtask, start_date=datetime.datetime.now())
+            models.DBSession.add(tasktime)
+        return {'stdout': _success('Task %s started.' % idtask)}
+
+    def stop(cls):
+        try:
+            tasktime = _get_active()
+        except sqla_exc.MultipleResultsFound, e:
+            return {'stderr': _failure('There is a problem in the DB: %s' % e)}
+
+        if not tasktime:
+            return {'stdout': _failure('No active task!')}
+
+        idtask = tasktime.idtask
+        with transaction.manager:
+            tasktime.end_date = datetime.datetime.now()
+            models.DBSession.add(tasktime)
+        return {'stdout': _success('Task %s stopped.' % idtask)}
+
+    def edit(cls, idtask):
+        task = models.Task.query.filter_by(idtask=idtask).one()
+        return {
+            'editor': True,
+            'content': {'description': task.description},
+            'idtask': idtask,
+            'action': 'update'}
+
+    def update(cls, idtask, json_content):
+        dic = json.loads(json_content)
+        with transaction.manager:
+            task = models.Task.query.filter_by(idtask=int(idtask)).one()
+            task.description = dic['description']
+            models.DBSession.add(task)
+        return {'stdout': _success('Task %s updated.' % idtask)}
+
+    def modify(cls, idtask, project=None):
+        with transaction.manager:
+            task = models.Task.query.filter_by(idtask=int(idtask)).one()
+            if project is not None:
+                if not project:
+                    task.project = None
+                else:
+                    try:
+                        pobj = models.Project.query.filter_by(name=project).one()
+                    except sqla_exc.NoResultFound:
+                        pobj = models.Project(name=project)
+                        models.DBSession.add(pobj)
+                    task.project = pobj
+
+            models.DBSession.add(task)
+        return {'stdout': _success('Task %s updated.' % idtask)}

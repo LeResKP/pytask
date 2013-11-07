@@ -11,6 +11,7 @@ _cmd_cfg=(
 	'active  alias'
 	'edit    alias'
 	'modify  alias'
+	'r  alias'
 )
 
 for cfg in "${_cmd_cfg[@]}" ; do
