@@ -12,7 +12,7 @@ _cmd_cfg=(
 	'edit    alias'
 	'modify  alias'
 	'today   alias'
-	'r  alias'
+	'report  alias'
 )
 
 for cfg in "${_cmd_cfg[@]}" ; do

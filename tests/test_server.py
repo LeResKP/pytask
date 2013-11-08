@@ -8,7 +8,7 @@ class TestServer(unittest.TestCase):
 
     def test_get_args(self):
 
-        def func():
+        def func(cls):
             pass
 
         expected = {
@@ -20,7 +20,7 @@ class TestServer(unittest.TestCase):
         res = server.get_args(func)
         self.assertEqual(res, expected)
 
-        def func(idtask):
+        def func(cls, idtask):
             pass
 
         expected = {
@@ -32,7 +32,7 @@ class TestServer(unittest.TestCase):
         res = server.get_args(func)
         self.assertEqual(res, expected)
 
-        def func(idtask, description):
+        def func(cls, idtask, description):
             pass
 
         expected = {
@@ -44,7 +44,7 @@ class TestServer(unittest.TestCase):
         res = server.get_args(func)
         self.assertEqual(res, expected)
 
-        def func(idtask, description=None):
+        def func(cls, idtask, description=None):
             pass
 
         expected = {
@@ -93,6 +93,14 @@ class TestServer(unittest.TestCase):
         self.assertEqual(cmd, 'update')
         self.assertEqual(kw, {'idtask': '1',
                               'json_content': d})
+
+        cmd, kw = server.parse_cmd_line('today')
+        self.assertEqual(cmd, 'today')
+        self.assertEqual(kw, {})
+
+        cmd, kw = server.parse_cmd_line('today -1')
+        self.assertEqual(cmd, 'today')
+        self.assertEqual(kw, {'delta': '-1'})
 
         try:
             cmd, kw = server.parse_cmd_line('add')

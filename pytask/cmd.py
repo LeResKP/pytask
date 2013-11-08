@@ -53,6 +53,11 @@ class StaticMethodMeta(type):
         return type.__new__(mcs, name, bases, dic)
 
 
+def key_required(func):
+    func.key_required = True
+    return func
+
+
 class TaskCmd(object):
     __metaclass__ = StaticMethodMeta
 
@@ -77,6 +82,7 @@ class TaskCmd(object):
             }, convert)
         return {'stdout': table.display()}
 
+    @key_required
     def add(cls, description, project=None):
         with transaction.manager:
             task = models.Task(description=description)
@@ -181,6 +187,7 @@ class TaskCmd(object):
         return {'stdout': _success('Task %s updated.' % idtask)}
 
     def today(cls, delta=None):
+        # TODO: to define as alias
         return ReportCmd.today(delta)
 
 

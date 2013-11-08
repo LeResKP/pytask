@@ -35,10 +35,24 @@ def get_args(func):
     return dic
 
 
-AVAILABLE_CMDS = {}
+AVAILABLE_CMDS = {
+    'report': {},
+    '': {},
+}
+
 for k, v in cmd.TaskCmd.available_cmds.items():
     dic = get_args(v)
-    AVAILABLE_CMDS[k] = dic
+    # dic['func'] = getattr(cmd.TaskCmd, dic['func'])
+    dic['cls'] = cmd.TaskCmd
+    AVAILABLE_CMDS[''][k] = dic
+
+for k, v in cmd.ReportCmd.available_cmds.items():
+    dic = get_args(v)
+    # dic['func'] = getattr(cmd.ReportCmd, dic['func'])
+    dic['cls'] = cmd.ReportCmd
+    AVAILABLE_CMDS['report'][k] = dic
+
+
     # print k, v
     # if k.startswith('_'):
     #     continue
@@ -55,10 +69,15 @@ def parse_cmd_line(line):
     line = regex_dq.sub(replacer, line)
     lis = line.split(' ')
     func = lis.pop(0)
-    if func not in AVAILABLE_CMDS:
+    dic = AVAILABLE_CMDS['']
+    if func in AVAILABLE_CMDS:
+        dic = AVAILABLE_CMDS[func]
+        func = lis.pop(0)
+
+    if func not in dic:
         raise Exception('Unavailable command %s' % func)
 
-    dic = AVAILABLE_CMDS[func]
+    dic = dic[func]
 
     kw = {}
     to_remove = []
@@ -74,26 +93,30 @@ def parse_cmd_line(line):
     for v in to_remove:
         lis.remove(v)
 
+    args = dic['required_args'][:]
+    if not getattr(dic['func'], 'key_required', False):
+        args += dic['non_required_args']
+
     lis = [l.replace(u'µ', ' ') for l in lis]
-    for k, v in zip(dic['required_args'], lis):
+    for k, v in zip(args, lis):
+        if k in kw:
+            continue
         kw[k] = v
 
-    if kw and len(lis) > len(dic['required_args']):
-        kw[k] += ' %s' % (' '.join(lis[len(dic['required_args']):]))
+    if kw and len(lis) > len(args):
+        kw[k] += ' %s' % (' '.join(lis[len(args):]))
 
     for k in dic['required_args']:
         if k not in kw:
             raise Exception('Missing required arg %s' % k)
 
-    return func, kw
+    return dic['func'], dic['cls'], kw
 
 
 def run_cmd(data):
-    func, kw = parse_cmd_line(data)
-    func = getattr(cmd.TaskCmd, func)
-    print kw
-    return json.dumps(func(**kw))
-
+    func, cls, kw = parse_cmd_line(data)
+    # func = getattr(cmd.TaskCmd, func)
+    return json.dumps(func(cls, **kw))
 
 
 class TaskTCPHandler(SocketServer.BaseRequestHandler):
