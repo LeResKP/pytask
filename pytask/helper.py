@@ -13,10 +13,11 @@ class Param(object):
     It will help to generate the help.
     """
 
-    def __init__(self, name, shortcut=None, required=False):
+    def __init__(self, name, shortcut=None, required=False, **kw):
         self.name = name
         self.shortcut = shortcut
         self.required = required
+        self.kw = kw
 
     def __call__(self, func):
         if not getattr(func, '_params', None):
@@ -43,7 +44,7 @@ def get_option_parser(func):
         args = ("--%s" % p.name, )
         if p.shortcut:
             args = ("-%s" % p.shortcut, "--%s" % p.name)
-        parser.add_option(*args)
+        parser.add_option(*args, **p.kw)
     usage = "%s %s" % (func.__name__, ' '.join(required))
     if has_option:
         usage += " Options"

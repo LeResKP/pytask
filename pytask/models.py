@@ -2,13 +2,16 @@ from sqlalchemy import (
     Column,
     Integer,
     String,
-    create_engine,
     DateTime,
+    create_engine,
+    ForeignKey,
 )
 
 from sqlalchemy.orm import (
     scoped_session,
     sessionmaker,
+    backref,
+    relationship,
 )
 
 from zope.sqlalchemy import ZopeTransactionExtension
@@ -32,3 +35,18 @@ class Task(Base):
     description = Column(String(255), nullable=False)
     creation_date = Column(DateTime, nullable=False,
                            default=datetime.datetime.now)
+
+    times = relationship('TaskTime', backref=backref("task", uselist=False))
+
+
+class TaskTime(Base):
+    idtasktime = Column(Integer,
+                        nullable=False,
+                        autoincrement=True,
+                        primary_key=True)
+    idtask = Column(Integer,
+                    ForeignKey('task.idtask'),
+                    nullable=False)
+    start_date = Column(DateTime, nullable=False,
+                        default=datetime.datetime.now)
+    end_date = Column(DateTime, nullable=True)

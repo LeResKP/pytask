@@ -1,4 +1,5 @@
 import sys
+import shlex
 from .command import TaskCommand
 
 
@@ -22,7 +23,7 @@ def usage():
     return '\n'.join(s)
 
 
-def main(argv=sys.argv):
+def execute(argv=sys.argv):
     """Parse the command line and call the corresponding method
     """
     if ''.join(argv[1:]).strip() in ['-h', '--help']:
@@ -52,13 +53,29 @@ def main(argv=sys.argv):
         }
 
     tmp = args[:nb]
-    tmp[-1] += ' ' + ' '.join(args[nb:])
+    if len(args) > nb:
+        tmp[-1] += ' ' + ' '.join(args[nb:])
     return func(*tmp, **vars(options))
 
 
+def main(command_str=None):
+    if command_str:
+        res = execute(shlex.split(command_str))
+    else:
+        res = execute()
+    if isinstance(res, dict):
+        if 'err' in res:
+            print >> sys.stderr, res['err']
+            exit(1)
+        if 'confirm' in res:
+            s = raw_input(res['confirm'] + ' (Y/n):')
+            if s.strip() in ['y', '']:
+                main('prog ' + res['command'])
+            else:
+                print 'Operation aborted!'
+    else:
+        print res
+
+
 if __name__ == '__main__':
-    res = main()
-    if isinstance(res, dict) and 'err' in res:
-        print >> sys.stderr, res['err']
-        exit(1)
-    print res
+    main()

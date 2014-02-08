@@ -1,34 +1,27 @@
-import unittest
-from sqlalchemy import create_engine
+from . import testing
 
 import pytask.response as response
-import pytask.models as models
 
 
-class TestTaskCommand(unittest.TestCase):
+class TestTaskCommand(testing.DBTestCase):
 
-    def setUp(self):
-        engine = create_engine('sqlite://')
-        models.DBSession.configure(bind=engine)
-        models.Base.metadata.create_all(engine)
-
-    def test_main(self):
-        res = response.main(['prog'])
+    def test_execute(self):
+        res = response.execute(['prog'])
         self.assertEqual(res, response.usage())
 
-        res = response.main(['prog', '-h'])
+        res = response.execute(['prog', '-h'])
         self.assertEqual(res, response.usage())
 
-        res = response.main(['prog', 'ls'])
+        res = response.execute(['prog', 'ls'])
         self.assertEqual(res, 'No task!')
 
-        res = response.main(['prog', 'add'])
+        res = response.execute(['prog', 'add'])
         self.assertTrue('Usage: add description' in res['err'])
         self.assertTrue('Missing parameter!' in res['err'])
 
-        res = response.main(['prog', 'add', '-t'])
+        res = response.execute(['prog', 'add', '-t'])
         self.assertTrue('Usage: add description' in res['err'])
         self.assertTrue('no such option: -t' in res['err'])
 
-        res = response.main(['prog', 'add', 'my', 'task'])
+        res = response.execute(['prog', 'add', 'my', 'task'])
         self.assertEqual(res, 'Task 1 created.')

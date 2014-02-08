@@ -1,6 +1,4 @@
 import unittest
-import sys
-import StringIO
 import pytask.helper as helper
 import shlex
 
@@ -16,10 +14,11 @@ class TestHelper(unittest.TestCase):
         self.assertEqual(res, func)
         self.assertEqual(res._params, [param])
 
-        param2 = helper.Param('bug_id', 'b', required=True)
+        param2 = helper.Param('bug_id', 'b', required=True, test=True)
         self.assertEqual(param2.name, 'bug_id')
         self.assertEqual(param2.shortcut, 'b')
         self.assertEqual(param2.required, True)
+        self.assertEqual(param2.kw, {'test': True})
 
         res = param2(func)
         self.assertEqual(res._params, [param2, param])
@@ -30,27 +29,19 @@ class TestHelper(unittest.TestCase):
         res = param(func)
         parser = helper.get_option_parser(res)
         try:
-            stderr = sys.stderr
-            sys.stderr = StringIO.StringIO()
             parser.parse_args(shlex.split('hello -t world'))
             assert(False)
-        except SystemExit, e:
-            self.assertEqual(str(e), '2')
-        finally:
-            sys.stderr = stderr
+        except Exception, e:
+            self.assertEqual(str(e), 'no such option: -t')
 
         param2 = helper.Param('test', 't', required=True)
         res = param2(func)
         parser = helper.get_option_parser(res)
         try:
-            stderr = sys.stderr
-            sys.stderr = StringIO.StringIO()
             parser.parse_args(shlex.split('hello -t world'))
             assert(False)
-        except SystemExit, e:
-            self.assertEqual(str(e), '2')
-        finally:
-            sys.stderr = stderr
+        except Exception, e:
+            self.assertEqual(str(e), 'no such option: -t')
 
         func = lambda: True
         param2 = helper.Param('test', 't')
