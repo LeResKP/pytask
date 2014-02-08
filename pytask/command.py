@@ -23,18 +23,21 @@ class TaskCommand(object):
         rows = models.Task.query.all()
         if not rows:
             return 'No task!'
-        return '\n'.join(['%s %s' % (row.idtask, row.description)
+        return '\n'.join(['%s %s %s' % (row.idtask,
+                                        row.description,
+                                        row.bug_id or '')
                           for row in rows])
 
     @Param('description', required=True)
-    def add(description):
+    @Param('bug_id', 'b')
+    def add(description, bug_id=None):
         """Add new task
         """
         rows = models.Task.query.filter_by(description=description).all()
         if rows:
             raise Exception('The task exists with id: %i' % rows[0].idtask)
         with transaction.manager:
-            task = models.Task(description=description)
+            task = models.Task(description=description, bug_id=bug_id)
             models.DBSession.add(task)
 
         models.DBSession.add(task)
@@ -111,3 +114,25 @@ class TaskCommand(object):
         if not tasktime:
             return {'err': 'No active task!'}
         return TaskCommand.info(tasktime.idtask)
+
+    @Param('idtask', required=True)
+    @Param('description', 'd')
+    @Param('bug_id', 'b')
+    def modify(idtask, **kw):
+        """Modify a task.
+        """
+        task = models.Task.query.get(idtask)
+        if not task:
+            return {'err': 'The task %s doesn\'t exist!' % idtask}
+
+        done = False
+        for k, v in kw.iteritems():
+            if v is not None:
+                setattr(task, k, v)
+                done = True
+
+        if not done:
+            return {'err': 'No parameter given!'}
+        with transaction.manager:
+            models.DBSession.add(task)
+        return 'The task %s is modified' % idtask

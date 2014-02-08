@@ -35,6 +35,7 @@ class Task(Base):
     description = Column(String(255), nullable=False)
     creation_date = Column(DateTime, nullable=False,
                            default=datetime.datetime.now)
+    bug_id = Column(String(255), nullable=True)
 
     times = relationship('TaskTime', backref=backref("task", uselist=False))
 
