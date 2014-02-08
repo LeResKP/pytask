@@ -1,7 +1,8 @@
-from .helper import CommandMeta, Param
+from .helper import CommandMeta, Param, indent
 from . import models
 import transaction
 import sqlalchemy.orm.exc as sqla_exc
+from sqlalchemy import or_
 import datetime
 
 
@@ -14,8 +15,23 @@ def get_active_tasktime():
         return None
 
 
-class TaskCommand(object):
+class Command(object):
+
+    @classmethod
+    def usage(cls):
+        s = []
+        s += ['%s commands:' % cls._command]
+        for c in cls._commands:
+            func = getattr(cls, c)
+            s += ['    %s: %s' % (c, func.__doc__.strip())]
+            if func._parser:
+                s += [indent(func._parser.format_help(), 8)]
+        return '\n'.join(s)
+
+
+class TaskCommand(Command):
     __metaclass__ = CommandMeta
+    _command = 'task'
 
     def ls():
         """List the tasks
@@ -136,3 +152,62 @@ class TaskCommand(object):
         with transaction.manager:
             models.DBSession.add(task)
         return 'The task %s is modified' % idtask
+
+
+def _report(start_date, end_date):
+    """Make a report on the done between the given date
+    """
+    rows = models.TaskTime.query.filter(
+        or_(start_date < models.TaskTime.end_date,
+            models.TaskTime.end_date == None)).filter(
+        models.TaskTime.start_date < end_date
+    ).all()
+
+    if not rows:
+        return {'err': 'No task done for the period'}
+
+    dic = {}
+    tasks = {}
+    lis = []
+    for row in rows:
+        start = max(start_date, row.start_date)
+        end = min(end_date, row.end_date or datetime.datetime.now())
+        dic.setdefault(row.idtask, 0)
+        duration = ((end - start).total_seconds() / 3600)
+        dic[row.idtask] += duration
+        if not row.end_date:
+            end = 'active'
+        tasks[row.idtask] = row.task
+        lis += [(start, end, duration, row.idtask, row.task.description)]
+
+    s = []
+    for start, end, duration, idtask, description in sorted(lis):
+        s += ['%s %s %s %s %s' % (start,
+                                  end,
+                                  duration,
+                                  idtask,
+                                  description)]
+    return '\n'.join(s)
+
+
+class ReportCommand(Command):
+    __metaclass__ = CommandMeta
+    _command = 'report'
+
+    def today():
+        """Create a report of the done of today.
+        """
+        now = datetime.datetime.now()
+        start_date = now.replace(minute=0, hour=0, second=0, microsecond=0)
+        end_date = start_date + datetime.timedelta(days=1)
+        return _report(start_date, end_date)
+
+    def week():
+        """Create a report of the done of the week.
+        We start from the last monday to the friday of the same week.
+        """
+        now = datetime.datetime.now()
+        now = now.replace(minute=0, hour=0, second=0, microsecond=0)
+        start_date = now + datetime.timedelta(days=-now.weekday())
+        end_date = start_date + datetime.timedelta(days=5)
+        return _report(start_date, end_date)

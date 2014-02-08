@@ -5,6 +5,11 @@ import shlex
 
 class TestHelper(unittest.TestCase):
 
+    def test_indent(self):
+        s = 'hello\nworld'
+        res = helper.indent(s, 2)
+        self.assertEqual(res, '  hello\n  world')
+
     def test_param(self):
         param = helper.Param('description')
         self.assertEqual(param.name, 'description')

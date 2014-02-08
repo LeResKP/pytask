@@ -3,6 +3,7 @@ import pytask.command as command
 import pytask.models as models
 import datetime
 import transaction
+from mock import patch
 
 
 class TestFunctions(testing.DBTestCase):
@@ -21,6 +22,61 @@ class TestFunctions(testing.DBTestCase):
         tasktime.end_date = datetime.datetime.now()
         res = command.get_active_tasktime()
         self.assertEqual(res, None)
+
+    def test__report(self):
+        task = models.Task(
+            description='Task 1',
+            creation_date=datetime.datetime.now()
+        )
+        tasktime = models.TaskTime(
+            start_date=datetime.datetime(2013, 2, 8, 9),
+            end_date=datetime.datetime(2013, 2, 8, 14),
+            task=task,
+        )
+        models.DBSession.add(tasktime)
+
+        res = command._report(
+            datetime.datetime(2013, 2, 7),
+            datetime.datetime(2013, 2, 8))
+        self.assertEqual(res, {'err': 'No task done for the period'})
+        self.assertFalse('Task 1' in res)
+
+       #  -----------|----------|-------
+       #          [                 ]  (1)
+       #          [       ]            (2)
+       #                  [         ]  (3)
+       #              [     ]          (4)
+
+        # (1)
+        res = command._report(
+            datetime.datetime(2013, 2, 8),
+            datetime.datetime(2013, 2, 9))
+        self.assertTrue('Task 1' in res)
+
+        # (2)
+        res = command._report(
+            datetime.datetime(2013, 2, 8),
+            datetime.datetime(2013, 2, 8, 12))
+        self.assertTrue('Task 1' in res)
+        # (3)
+        res = command._report(
+            datetime.datetime(2013, 2, 8, 12),
+            datetime.datetime(2013, 2, 9))
+        self.assertTrue('Task 1' in res)
+
+        # (4)
+        res = command._report(
+            datetime.datetime(2013, 2, 8, 11),
+            datetime.datetime(2013, 2, 8, 12))
+        self.assertTrue('Task 1' in res)
+
+        # Not end date
+        tasktime.end_date = None
+        models.DBSession.add(tasktime)
+        res = command._report(
+            datetime.datetime(2013, 2, 8),
+            datetime.datetime(2013, 2, 9))
+        self.assertTrue('Task 1' in res)
 
 
 class TestTaskCommand(testing.DBTestCase):
@@ -154,3 +210,43 @@ class TestTaskCommand(testing.DBTestCase):
         self.assertEqual(res, 'The task 1 is modified')
         task = models.Task.query.get(1)
         self.assertEqual(task.description, 'New description')
+
+
+class TestReportCommand(testing.DBTestCase):
+
+    def test_today(self):
+        from datetime import datetime
+        with patch('datetime.datetime') as mock_dt:
+            mock_dt.now.return_value = datetime(2014, 2, 8, 12, 0, 0)
+            mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            with patch('pytask.command._report') as mock_report:
+                command.ReportCommand.today()
+            mock_report.assert_called_with(mock_dt(2014, 2, 8),
+                                           mock_dt(2014, 2, 9))
+
+    def test_week(self):
+        from datetime import datetime
+
+        with patch('datetime.datetime') as mock_dt:
+            mock_dt.now.return_value = datetime(2014, 2, 2, 12, 0, 0)
+            mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            with patch('pytask.command._report') as mock_report:
+                command.ReportCommand.week()
+            mock_report.assert_called_with(mock_dt(2014, 1, 27),
+                                           mock_dt(2014, 2, 1))
+        for day in range(3, 10):
+            with patch('datetime.datetime') as mock_dt:
+                mock_dt.now.return_value = datetime(2014, 2, day, 12, 0, 0)
+                mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+                with patch('pytask.command._report') as mock_report:
+                    command.ReportCommand.week()
+                mock_report.assert_called_with(mock_dt(2014, 2, 3),
+                                               mock_dt(2014, 2, 8))
+
+        with patch('datetime.datetime') as mock_dt:
+            mock_dt.now.return_value = datetime(2014, 2, 10, 12, 0, 0)
+            mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            with patch('pytask.command._report') as mock_report:
+                command.ReportCommand.week()
+            mock_report.assert_called_with(mock_dt(2014, 2, 10),
+                                           mock_dt(2014, 2, 15))

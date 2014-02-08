@@ -2,6 +2,14 @@ import inspect
 from optparse import OptionParser
 
 
+def indent(s, spaces):
+    """Indent a multiline string
+    """
+    lines = s.split('\n')
+    lines = [(spaces * ' ') + line for line in lines]
+    return '\n'.join(lines)
+
+
 class RaiseOptionParser(OptionParser):
 
     def error(self, msg):
