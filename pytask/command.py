@@ -1,6 +1,7 @@
 from colorterm import colorterm, Table
 from .helper import CommandMeta, Param, indent
 from . import models
+from .conf import config
 import transaction
 import sqlalchemy.orm.exc as sqla_exc
 from sqlalchemy import or_
@@ -14,6 +15,20 @@ def get_active_tasktime():
         return models.TaskTime.query.filter_by(end_date=None).one()
     except sqla_exc.NoResultFound:
         return None
+
+
+def _date_to_time(d):
+    """Display the time of the given date
+    """
+    f = config.get('report', 'time_format')
+    return d.strftime(f)
+
+
+def _date_to_str(d):
+    """Display given date as str
+    """
+    f = config.get('report', 'date_format')
+    return d.strftime(f)
 
 
 class Command(object):
@@ -40,17 +55,15 @@ class TaskCommand(Command):
         rows = models.Task.query.all()
         if not rows:
             return {'msg': 'No task!'}
-        table = Table('ID', 'Bug ID', 'Description')
+        keys = [k.replace('_', ' ')
+                for k in config.get('ls', 'format').split(' ')]
+        table = Table(*keys)
         tasktime = get_active_tasktime()
         for row in rows:
             convert = None
             if tasktime and tasktime.idtask == row.idtask:
                 convert = colorterm.cyan
-            table.add_row({
-                'ID': row.idtask,
-                'Bug ID': row.bug_id or '',
-                'Description': row.description,
-            }, convert)
+            table.add_row(row.get_data_for_display(), convert)
         return {'msg': table.display()}
 
     @Param('description', required=True)
@@ -198,14 +211,6 @@ class TaskCommand(Command):
         return {'success': 'The task %s is modified' % idtask}
 
 
-def _date_to_time(d):
-    return d.strftime('%H:%M')
-
-
-def _date_to_str(d):
-    return d.strftime('%Y/%m/%d')
-
-
 def _report(start_date, end_date):
     """Make a report on the done between the given date
     """
@@ -241,31 +246,29 @@ def _report(start_date, end_date):
         if not row.end_date:
             end = None
         tasks[row.idtask] = row.task
-        detail_data += [(start, end, duration, row.idtask, row.task.bug_id,
-                         row.task.description)]
+        # NOTE: start is used to sort the data
+        detail_data += [(start,
+                         row.task.get_data_for_display(
+                             Start=_date_to_time(start),
+                             End=(end and _date_to_time(end) or 'active'),
+                             Duration=round(duration, 1)))]
 
-    table = Table('ID', 'Bug ID', 'Description', 'Duration')
+    keys = [k.replace('_', ' ')
+            for k in config.get('report', 'format').split(' ')]
+    table = Table(*keys)
     for idtask in sorted(durations.keys()):
         task = tasks[idtask]
-        table.add_row({
-            'ID': idtask,
-            'Bug ID': task.bug_id,
-            'Description': task.description,
-            'Duration': '%sh' % round(durations[idtask], 1),
-        })
+        data = task.get_data_for_display(Duration=round(duration, 1))
+        table.add_row(data)
     s += [table.display()]
 
     if one_day:
-        detail = Table('ID', 'Bug ID', 'Description', 'Start', 'End', 'Duration')
-        for start, end, duration, idtask, bug_id, description in sorted(detail_data):
-            detail.add_row({
-                'ID': idtask,
-                'Bug ID': bug_id,
-                'Description': description,
-                'Start': _date_to_time(start),
-                'End': end and _date_to_time(end) or 'active',
-                'Duration': '%sh' % round(duration, 1),
-            })
+
+        keys = [k.replace('_', ' ')
+                for k in config.get('report', 'detail_format').split(' ')]
+        detail = Table(*keys)
+        for start, dic in sorted(detail_data):
+            detail.add_row(dic)
 
         s += ['%s' % detail.display()]
     else:
