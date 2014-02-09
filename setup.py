@@ -34,5 +34,7 @@ setup(name='pytask',
       ],
       entry_points="""
       # -*- Entry points: -*-
+      [console_scripts]
+      pytask = pytask.response:main
       """,
       )
