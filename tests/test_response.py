@@ -24,4 +24,4 @@ class TestTaskCommand(testing.DBTestCase):
         self.assertTrue('no such option: -t' in res['err'])
 
         res = response.execute(['prog', 'add', 'my', 'task'])
-        self.assertEqual(res, 'Task 1 created.')
+        self.assertEqual(res, {'success': 'Task 1 created.'})

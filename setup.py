@@ -25,7 +25,7 @@ setup(name='pytask',
       include_package_data=True,
       zip_safe=False,
       install_requires=[
-          # -*- Extra requirements: -*-
+          'colorterm'
       ],
       test_suite='nose.collector',
       tests_require=[

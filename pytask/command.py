@@ -38,11 +38,12 @@ class TaskCommand(Command):
         """
         rows = models.Task.query.all()
         if not rows:
-            return 'No task!'
-        return '\n'.join(['%s %s %s' % (row.idtask,
-                                        row.description,
-                                        row.bug_id or '')
-                          for row in rows])
+            return {'msg': 'No task!'}
+        s = '\n'.join(['%s %s %s' % (row.idtask,
+                                     row.description,
+                                     row.bug_id or '')
+                       for row in rows])
+        return {'msg': s}
 
     @Param('description', required=True)
     @Param('bug_id', 'b')
@@ -51,13 +52,13 @@ class TaskCommand(Command):
         """
         rows = models.Task.query.filter_by(description=description).all()
         if rows:
-            raise Exception('The task exists with id: %i' % rows[0].idtask)
+            return {'err': 'The task exists with id: %i' % rows[0].idtask}
         with transaction.manager:
             task = models.Task(description=description, bug_id=bug_id)
             models.DBSession.add(task)
 
         models.DBSession.add(task)
-        return 'Task %i created.' % task.idtask
+        return {'success': 'Task %i created.' % task.idtask}
 
     @Param('idtask', required=True)
     @Param('force', 'f', action='store_true')
@@ -68,7 +69,7 @@ class TaskCommand(Command):
         if not task:
             return {'err': 'The task %s doesn\'t exist!' % idtask}
 
-        s = []
+        d = {}
         active_tasktime = get_active_tasktime()
         if active_tasktime:
             if active_tasktime.idtask == task.idtask:
@@ -81,14 +82,17 @@ class TaskCommand(Command):
                         'Do you want to stop it?' % active_tasktime.idtask),
                     'command': 'start -f %s' % idtask
                 }
-            s += [TaskCommand.stop(active_tasktime)]
+            res = TaskCommand.stop(active_tasktime)
+            if 'err' in res:
+                return res
+            d['info'] = res['success']
 
         with transaction.manager:
             tasktime = models.TaskTime(idtask=idtask,
                                        start_date=datetime.datetime.now())
             models.DBSession.add(tasktime)
-        s += ['The task %s is activated' % idtask]
-        return '\n'.join(s)
+        d['success'] = 'The task %s is activated' % idtask
+        return d
 
     def stop(tasktime=None):
         """Stop a task.
@@ -101,7 +105,7 @@ class TaskCommand(Command):
         with transaction.manager:
             tasktime.end_date = datetime.datetime.now()
             models.DBSession.add(tasktime)
-        return 'The task %i is stopped!' % idtask
+        return {'success': 'The task %i is stopped!' % idtask}
 
     @Param('idtask', required=True)
     def info(idtask):
@@ -121,7 +125,7 @@ class TaskCommand(Command):
                                    tasktime.end_date)]
             else:
                 s += ['active from %s' % tasktime.start_date]
-        return '\n'.join(s)
+        return {'msg': '\n'.join(s)}
 
     def active():
         """Display information about the active task.
@@ -151,7 +155,7 @@ class TaskCommand(Command):
             return {'err': 'No parameter given!'}
         with transaction.manager:
             models.DBSession.add(task)
-        return 'The task %s is modified' % idtask
+        return {'success': 'The task %s is modified' % idtask}
 
 
 def _report(start_date, end_date):
@@ -187,7 +191,7 @@ def _report(start_date, end_date):
                                   duration,
                                   idtask,
                                   description)]
-    return '\n'.join(s)
+    return {'msg': '\n'.join(s)}
 
 
 class ReportCommand(Command):

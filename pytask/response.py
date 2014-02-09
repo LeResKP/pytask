@@ -1,5 +1,6 @@
 import sys
 import shlex
+from colorterm import colorterm
 from .command import TaskCommand, ReportCommand
 
 
@@ -31,10 +32,10 @@ def execute(argv=sys.argv):
     """Parse the command line and call the corresponding method
     """
     if ''.join(argv[1:]).strip() in ['-h', '--help', 'help']:
-        return usage()
+        return {'msg': usage()}
 
     if len(argv) < 2:
-        return usage()
+        return {'msg': usage()}
 
     cmd = argv[1]
     consume = 2
@@ -74,23 +75,46 @@ def execute(argv=sys.argv):
     return func(*tmp, **vars(options))
 
 
+def print_error(s):
+    print >> sys.stderr, colorterm.red(s)
+
+
+def print_msg(s):
+    print s
+
+
+def print_info(s):
+    print colorterm.blue(s)
+
+
+def print_success(s):
+    print colorterm.green(s)
+
+
 def main(command_str=None):
     if command_str:
         res = execute(shlex.split(command_str))
     else:
         res = execute()
-    if isinstance(res, dict):
-        if 'err' in res:
-            print >> sys.stderr, res['err']
-            exit(1)
-        if 'confirm' in res:
-            s = raw_input(res['confirm'] + ' (Y/n):')
-            if s.strip() in ['y', '']:
-                main('prog ' + res['command'])
-            else:
-                print 'Operation aborted!'
-    else:
-        print res
+
+    if not isinstance(res, dict):
+        print >> sys.stderr, 'Bad response'
+        exit(1)
+
+    if 'err' in res:
+        print_error(res['err'])
+    if 'info' in res:
+        print_info(res['info'])
+    if 'success' in res:
+        print_success(res['success'])
+    if 'msg' in res:
+        print_msg(res['msg'])
+    if 'confirm' in res:
+        s = raw_input(res['confirm'] + ' (Y/n):')
+        if s.strip() in ['y', '']:
+            main('prog ' + res['command'])
+        else:
+            print_info('Operation aborted!')
 
 
 if __name__ == '__main__':

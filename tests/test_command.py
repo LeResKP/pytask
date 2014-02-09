@@ -51,24 +51,29 @@ class TestFunctions(testing.DBTestCase):
         res = command._report(
             datetime.datetime(2013, 2, 8),
             datetime.datetime(2013, 2, 9))
-        self.assertTrue('Task 1' in res)
+        self.assertEqual(len(res), 1)
+        self.assertTrue('Task 1' in res['msg'])
 
         # (2)
         res = command._report(
             datetime.datetime(2013, 2, 8),
             datetime.datetime(2013, 2, 8, 12))
-        self.assertTrue('Task 1' in res)
+        self.assertEqual(len(res), 1)
+        self.assertTrue('Task 1' in res['msg'])
+
         # (3)
         res = command._report(
             datetime.datetime(2013, 2, 8, 12),
             datetime.datetime(2013, 2, 9))
-        self.assertTrue('Task 1' in res)
+        self.assertEqual(len(res), 1)
+        self.assertTrue('Task 1' in res['msg'])
 
         # (4)
         res = command._report(
             datetime.datetime(2013, 2, 8, 11),
             datetime.datetime(2013, 2, 8, 12))
-        self.assertTrue('Task 1' in res)
+        self.assertEqual(len(res), 1)
+        self.assertTrue('Task 1' in res['msg'])
 
         # Not end date
         tasktime.end_date = None
@@ -76,7 +81,8 @@ class TestFunctions(testing.DBTestCase):
         res = command._report(
             datetime.datetime(2013, 2, 8),
             datetime.datetime(2013, 2, 9))
-        self.assertTrue('Task 1' in res)
+        self.assertEqual(len(res), 1)
+        self.assertTrue('Task 1' in res['msg'])
 
 
 class TestTaskCommand(testing.DBTestCase):
@@ -92,17 +98,15 @@ class TestTaskCommand(testing.DBTestCase):
 
     def test_add(self):
         res = command.TaskCommand.add('my task')
-        self.assertEqual(res, 'Task 1 created.')
+        self.assertEqual(res, {'success': 'Task 1 created.'})
         task = models.Task.query.one()
         self.assertEqual(task.description, 'my task')
         self.assertTrue(task.creation_date)
-        try:
-            command.TaskCommand.add('my task')
-        except Exception, e:
-            self.assertEqual(str(e), 'The task exists with id: 1')
+        res = command.TaskCommand.add('my task')
+        self.assertEqual(res, {'err': 'The task exists with id: 1'})
 
         res = command.TaskCommand.add('my task2', bug_id='1234')
-        self.assertEqual(res, 'Task 2 created.')
+        self.assertEqual(res, {'success': 'Task 2 created.'})
         task = models.Task.query.get(2)
         self.assertEqual(task.description, 'my task2')
         self.assertEqual(task.bug_id, '1234')
@@ -119,7 +123,7 @@ class TestTaskCommand(testing.DBTestCase):
         self.assertEqual(task.times, [])
 
         res = command.TaskCommand.start(1)
-        self.assertEqual(res, 'The task 1 is activated')
+        self.assertEqual(res, {'success': 'The task 1 is activated'})
 
         self.assertEqual(len(models.TaskTime.query.all()), 1)
         task = models.Task.query.get(1)
@@ -143,8 +147,10 @@ class TestTaskCommand(testing.DBTestCase):
             })
 
         res = command.TaskCommand.start(2, force=True)
-        self.assertEqual(res,
-                         'The task 1 is stopped!\nThe task 2 is activated')
+        self.assertEqual(res, {
+            'info': 'The task 1 is stopped!',
+            'success': 'The task 2 is activated'
+        })
 
         task1 = models.Task.query.get(1)
         task2 = models.Task.query.get(2)
@@ -161,7 +167,7 @@ class TestTaskCommand(testing.DBTestCase):
             models.DBSession.add(task)
         command.TaskCommand.start(1)
         res = command.TaskCommand.stop()
-        self.assertEqual(res, 'The task 1 is stopped!')
+        self.assertEqual(res, {'success': 'The task 1 is stopped!'})
         task = models.Task.query.get(1)
         self.assertEqual(len(task.times), 1)
         self.assertTrue(task.times[0].end_date)
@@ -173,16 +179,18 @@ class TestTaskCommand(testing.DBTestCase):
         task = models.Task(description='task 1')
         models.DBSession.add(task)
         res = command.TaskCommand.info(1)
-        self.assertTrue('Task 1:' in res)
-        self.assertTrue('Duration:' not in res)
+        self.assertEqual(len(res), 1)
+        self.assertTrue('Task 1:' in res['msg'])
+        self.assertTrue('Duration:' not in res['msg'])
 
         tasktime = models.TaskTime(start_date=datetime.datetime.now())
         tasktime.task = task
         models.DBSession.add(task)
 
         res = command.TaskCommand.info(1)
-        self.assertTrue('Task 1:' in res)
-        self.assertTrue('Duration:' in res)
+        self.assertEqual(len(res), 1)
+        self.assertTrue('Task 1:' in res['msg'])
+        self.assertTrue('Duration:' in res['msg'])
 
     def test_active(self):
         res = command.TaskCommand.active()
@@ -193,7 +201,8 @@ class TestTaskCommand(testing.DBTestCase):
         tasktime.task = task
         models.DBSession.add(task)
         res = command.TaskCommand.active()
-        self.assertTrue('Task 1:' in res)
+        self.assertEqual(len(res), 1)
+        self.assertTrue('Task 1:' in res['msg'])
 
     def test_modify(self):
         res = command.TaskCommand.modify(1)
@@ -207,7 +216,7 @@ class TestTaskCommand(testing.DBTestCase):
         self.assertEqual(res, {'err': 'No parameter given!'})
 
         res = command.TaskCommand.modify(1, description='New description')
-        self.assertEqual(res, 'The task 1 is modified')
+        self.assertEqual(res, {'success': 'The task 1 is modified'})
         task = models.Task.query.get(1)
         self.assertEqual(task.description, 'New description')
 
