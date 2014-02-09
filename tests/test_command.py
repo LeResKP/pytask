@@ -37,7 +37,7 @@ class TestFunctions(testing.DBTestCase):
 
         res = command._report(
             datetime.datetime(2013, 2, 7),
-            datetime.datetime(2013, 2, 8))
+            datetime.datetime(2013, 2, 7))
         self.assertEqual(res, {'err': 'No task done for the period'})
         self.assertFalse('Task 1' in res)
 
@@ -50,7 +50,7 @@ class TestFunctions(testing.DBTestCase):
         # (1)
         res = command._report(
             datetime.datetime(2013, 2, 8),
-            datetime.datetime(2013, 2, 9))
+            datetime.datetime(2013, 2, 8))
         self.assertEqual(len(res), 1)
         self.assertTrue('Task 1' in res['msg'])
 
@@ -89,12 +89,12 @@ class TestTaskCommand(testing.DBTestCase):
 
     def test_ls(self):
         res = command.TaskCommand.ls()
-        self.assertEqual(res, 'No task!')
+        self.assertEqual(res, {'msg': 'No task!'})
 
         task = models.Task(description='my task')
         models.DBSession.add(task)
         res = command.TaskCommand.ls()
-        self.assertEqual(res, '1 my task ')
+        self.assertTrue('my task' in res['msg'])
 
     def test_add(self):
         res = command.TaskCommand.add('my task')
@@ -231,7 +231,7 @@ class TestReportCommand(testing.DBTestCase):
             with patch('pytask.command._report') as mock_report:
                 command.ReportCommand.today()
             mock_report.assert_called_with(mock_dt(2014, 2, 8),
-                                           mock_dt(2014, 2, 9))
+                                           mock_dt(2014, 2, 8))
 
     def test_week(self):
         from datetime import datetime
@@ -242,7 +242,7 @@ class TestReportCommand(testing.DBTestCase):
             with patch('pytask.command._report') as mock_report:
                 command.ReportCommand.week()
             mock_report.assert_called_with(mock_dt(2014, 1, 27),
-                                           mock_dt(2014, 2, 1))
+                                           mock_dt(2014, 1, 31))
         for day in range(3, 10):
             with patch('datetime.datetime') as mock_dt:
                 mock_dt.now.return_value = datetime(2014, 2, day, 12, 0, 0)
@@ -250,7 +250,7 @@ class TestReportCommand(testing.DBTestCase):
                 with patch('pytask.command._report') as mock_report:
                     command.ReportCommand.week()
                 mock_report.assert_called_with(mock_dt(2014, 2, 3),
-                                               mock_dt(2014, 2, 8))
+                                               mock_dt(2014, 2, 7))
 
         with patch('datetime.datetime') as mock_dt:
             mock_dt.now.return_value = datetime(2014, 2, 10, 12, 0, 0)
@@ -258,4 +258,16 @@ class TestReportCommand(testing.DBTestCase):
             with patch('pytask.command._report') as mock_report:
                 command.ReportCommand.week()
             mock_report.assert_called_with(mock_dt(2014, 2, 10),
-                                           mock_dt(2014, 2, 15))
+                                           mock_dt(2014, 2, 14))
+
+    def test_date(self):
+        from datetime import datetime
+
+        with patch('datetime.datetime') as mock_dt:
+            mock_dt.strptime.return_value = datetime(2014, 2, 3, 0, 0, 0)
+            mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            with patch('pytask.command._report') as mock_report:
+                command.ReportCommand.date('2014/02/03', '2014/02/07')
+            # NOTE: same date because of the mock
+            mock_report.assert_called_with(mock_dt(2014, 2, 3),
+                                           mock_dt(2014, 2, 3))

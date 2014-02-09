@@ -1,3 +1,4 @@
+from colorterm import colorterm, Table
 from .helper import CommandMeta, Param, indent
 from . import models
 import transaction
@@ -39,11 +40,18 @@ class TaskCommand(Command):
         rows = models.Task.query.all()
         if not rows:
             return {'msg': 'No task!'}
-        s = '\n'.join(['%s %s %s' % (row.idtask,
-                                     row.description,
-                                     row.bug_id or '')
-                       for row in rows])
-        return {'msg': s}
+        table = Table('ID', 'Bug ID', 'Description')
+        tasktime = get_active_tasktime()
+        for row in rows:
+            convert = None
+            if tasktime and tasktime.idtask == row.idtask:
+                convert = colorterm.cyan
+            table.add_row({
+                'ID': row.idtask,
+                'Bug ID': row.bug_id or '',
+                'Description': row.description,
+            }, convert)
+        return {'msg': table.display()}
 
     @Param('description', required=True)
     @Param('bug_id', 'b')
@@ -158,9 +166,28 @@ class TaskCommand(Command):
         return {'success': 'The task %s is modified' % idtask}
 
 
+def _date_to_time(d):
+    return d.strftime('%H:%M')
+
+
+def _date_to_str(d):
+    return d.strftime('%Y/%m/%d')
+
+
 def _report(start_date, end_date):
     """Make a report on the done between the given date
     """
+    s = []
+    if start_date == end_date:
+        one_day = True
+        s += [colorterm.bold('\nReport of the %s:' % _date_to_str(start_date))]
+    else:
+        one_day = False
+        s += [colorterm.bold(
+            '\nReport from %s to %s:' % (_date_to_str(start_date),
+                                       _date_to_str(end_date)))]
+
+    end_date = end_date + datetime.timedelta(days=1)
     rows = models.TaskTime.query.filter(
         or_(start_date < models.TaskTime.end_date,
             models.TaskTime.end_date == None)).filter(
@@ -170,28 +197,57 @@ def _report(start_date, end_date):
     if not rows:
         return {'err': 'No task done for the period'}
 
-    dic = {}
+    durations = {}
     tasks = {}
-    lis = []
+    detail_data = []
     for row in rows:
         start = max(start_date, row.start_date)
         end = min(end_date, row.end_date or datetime.datetime.now())
-        dic.setdefault(row.idtask, 0)
         duration = ((end - start).total_seconds() / 3600)
-        dic[row.idtask] += duration
+        durations.setdefault(row.idtask, 0)
+        durations[row.idtask] += duration
         if not row.end_date:
-            end = 'active'
+            end = None
         tasks[row.idtask] = row.task
-        lis += [(start, end, duration, row.idtask, row.task.description)]
+        detail_data += [(start, end, duration, row.idtask, row.task.bug_id,
+                         row.task.description)]
 
-    s = []
-    for start, end, duration, idtask, description in sorted(lis):
-        s += ['%s %s %s %s %s' % (start,
-                                  end,
-                                  duration,
-                                  idtask,
-                                  description)]
-    return {'msg': '\n'.join(s)}
+    table = Table('ID', 'Bug ID', 'Description', 'Duration')
+    for idtask in sorted(durations.keys()):
+        task = tasks[idtask]
+        table.add_row({
+            'ID': idtask,
+            'Bug ID': task.bug_id,
+            'Description': task.description,
+            'Duration': '%sh' % round(durations[idtask], 1),
+        })
+    s += [table.display()]
+
+    if one_day:
+        detail = Table('ID', 'Bug ID', 'Description', 'Start', 'End', 'Duration')
+        for start, end, duration, idtask, bug_id, description in sorted(detail_data):
+            detail.add_row({
+                'ID': idtask,
+                'Bug ID': bug_id,
+                'Description': description,
+                'Start': _date_to_time(start),
+                'End': end and _date_to_time(end) or 'active',
+                'Duration': '%sh' % round(duration, 1),
+            })
+
+        s += ['%s' % detail.display()]
+    else:
+        s += [colorterm.bold('\nDetails of the report:')]
+        d = (end_date - start_date).days
+        for i in range(d):
+            d = start_date + datetime.timedelta(i)
+            res = _report(d, d)
+            if 'msg' in res:
+                sub = res['msg']
+            else:
+                sub = colorterm.bold('No task on %s' % _date_to_str(d))
+            s += [indent(sub, 4)]
+    return {'msg': '\n\n'.join(s)}
 
 
 class ReportCommand(Command):
@@ -203,7 +259,7 @@ class ReportCommand(Command):
         """
         now = datetime.datetime.now()
         start_date = now.replace(minute=0, hour=0, second=0, microsecond=0)
-        end_date = start_date + datetime.timedelta(days=1)
+        end_date = start_date
         return _report(start_date, end_date)
 
     def week():
@@ -213,5 +269,15 @@ class ReportCommand(Command):
         now = datetime.datetime.now()
         now = now.replace(minute=0, hour=0, second=0, microsecond=0)
         start_date = now + datetime.timedelta(days=-now.weekday())
-        end_date = start_date + datetime.timedelta(days=5)
+        end_date = start_date + datetime.timedelta(days=4)
+        return _report(start_date, end_date)
+
+    @Param('startdate', required=True)
+    @Param('enddate', required=True)
+    def date(startdate, enddate):
+        """Create a report between given dates.
+        """
+        date_str_format = '%Y/%m/%d'
+        start_date = datetime.datetime.strptime(startdate, date_str_format)
+        end_date = datetime.datetime.strptime(enddate, date_str_format)
         return _report(start_date, end_date)

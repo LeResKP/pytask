@@ -7,13 +7,13 @@ class TestTaskCommand(testing.DBTestCase):
 
     def test_execute(self):
         res = response.execute(['prog'])
-        self.assertEqual(res, response.usage())
+        self.assertEqual(res, {'msg': response.usage()})
 
         res = response.execute(['prog', '-h'])
-        self.assertEqual(res, response.usage())
+        self.assertEqual(res, {'msg': response.usage()})
 
         res = response.execute(['prog', 'ls'])
-        self.assertEqual(res, 'No task!')
+        self.assertEqual(res, {'msg': 'No task!'})
 
         res = response.execute(['prog', 'add'])
         self.assertTrue('Usage: add description' in res['err'])
