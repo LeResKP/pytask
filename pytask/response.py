@@ -1,10 +1,10 @@
 import sys
 import shlex
 from colorterm import colorterm
-from .command import TaskCommand, ReportCommand
+from .command import TaskCommand, ReportCommand, ProjectCommand
 
 
-COMMAND_CLASSES = [TaskCommand, ReportCommand]
+COMMAND_CLASSES = [TaskCommand, ProjectCommand, ReportCommand]
 
 COMMANDS = {}
 for cls in COMMAND_CLASSES:

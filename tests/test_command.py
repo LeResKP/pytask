@@ -111,6 +111,28 @@ class TestTaskCommand(testing.DBTestCase):
         self.assertEqual(task.description, 'my task2')
         self.assertEqual(task.bug_id, '1234')
 
+        res = command.TaskCommand.add('my task3', project_id='1234')
+        self.assertEqual(res, {'err': 'The project 1234 doesn\'t exist'})
+
+        with transaction.manager:
+            project = models.Project(name='project1')
+            models.DBSession.add(project)
+
+        models.DBSession.add(project)
+
+        res = command.TaskCommand.add('my task3', project_id=project.idproject)
+        self.assertEqual(res, {'success': 'Task 3 created.'})
+        task = models.Task.query.get(3)
+        self.assertEqual(task.project.idproject, project.idproject)
+        self.assertEqual(task.status, None)
+        self.assertEqual(task.completed_date, None)
+
+        res = command.TaskCommand.add('my task4', status='resolved')
+        self.assertEqual(res, {'success': 'Task 4 created.'})
+        task = models.Task.query.get(4)
+        self.assertEqual(task.status, 'resolved')
+        self.assertTrue(task.completed_date)
+
     def test_start(self):
         res = command.TaskCommand.start(1)
         self.assertEqual(res, {'err': 'The task 1 doesn\'t exist!'})
@@ -220,6 +242,33 @@ class TestTaskCommand(testing.DBTestCase):
         task = models.Task.query.get(1)
         self.assertEqual(task.description, 'New description')
 
+        res = command.TaskCommand.modify(1, project_id=1234)
+        self.assertEqual(res, {'err': 'The project 1234 doesn\'t exist'})
+
+        with transaction.manager:
+            project = models.Project(name='project1')
+            models.DBSession.add(project)
+
+        models.DBSession.add(project)
+        res = command.TaskCommand.modify(1, project_id=project.idproject)
+        self.assertEqual(res, {'success': 'The task 1 is modified'})
+        task = models.Task.query.get(1)
+        self.assertEqual(task.project.idproject, project.idproject)
+        self.assertEqual(task.status, None)
+        self.assertEqual(task.completed_date, None)
+
+        res = command.TaskCommand.modify(1, status='closed')
+        self.assertEqual(res, {'success': 'The task 1 is modified'})
+        task = models.Task.query.get(1)
+        self.assertEqual(task.status, 'closed')
+        self.assertTrue(task.completed_date)
+
+        res = command.TaskCommand.modify(1, status='open')
+        self.assertEqual(res, {'success': 'The task 1 is modified'})
+        task = models.Task.query.get(1)
+        self.assertEqual(task.status, 'open')
+        self.assertFalse(task.completed_date)
+
 
 class TestReportCommand(testing.DBTestCase):
 
@@ -271,3 +320,45 @@ class TestReportCommand(testing.DBTestCase):
             # NOTE: same date because of the mock
             mock_report.assert_called_with(mock_dt(2014, 2, 3),
                                            mock_dt(2014, 2, 3))
+
+
+class TestProjectCommand(testing.DBTestCase):
+
+    def test_ls(self):
+        res = command.ProjectCommand.ls()
+        self.assertEqual(res, {'msg': 'No project!'})
+
+        project = models.Project(name='my project')
+        models.DBSession.add(project)
+        res = command.ProjectCommand.ls()
+        self.assertTrue('my project' in res['msg'])
+
+    def test_add(self):
+        res = command.ProjectCommand.add('my project')
+        self.assertEqual(res, {'success': 'Project 1 created.'})
+        project = models.Project.query.one()
+        self.assertEqual(project.name, 'my project')
+        res = command.ProjectCommand.add('my project')
+        self.assertEqual(res, {'err': 'The project exists with id: 1'})
+
+        res = command.ProjectCommand.add('my project2', bug_id='1234')
+        self.assertEqual(res, {'success': 'Project 2 created.'})
+        project = models.Project.query.get(2)
+        self.assertEqual(project.name, 'my project2')
+        self.assertEqual(project.bug_id, '1234')
+
+    def test_modify(self):
+        res = command.ProjectCommand.modify(1)
+        self.assertEqual(res, {'err': 'The project 1 doesn\'t exist!'})
+
+        project = models.Project(name='project 1')
+        with transaction.manager:
+            models.DBSession.add(project)
+
+        res = command.ProjectCommand.modify(1)
+        self.assertEqual(res, {'err': 'No parameter given!'})
+
+        res = command.ProjectCommand.modify(1, name='New name')
+        self.assertEqual(res, {'success': 'The project 1 is modified'})
+        project = models.Project.query.get(1)
+        self.assertEqual(project.name, 'New name')

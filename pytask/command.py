@@ -55,14 +55,33 @@ class TaskCommand(Command):
 
     @Param('description', required=True)
     @Param('bug_id', 'b')
-    def add(description, bug_id=None):
+    @Param('project_id', 'p')
+    @Param('status', 's', type="choice",
+           choices=['open', 'resolved', 'closed'], default='open')
+    @Param('priority', 'l', type="choice", choices=['low', 'normal', 'high'],
+           default='normal')
+    def add(description, bug_id=None, status=None, priority=None,
+            project_id=None):
         """Add new task
         """
         rows = models.Task.query.filter_by(description=description).all()
         if rows:
             return {'err': 'The task exists with id: %i' % rows[0].idtask}
+        if project_id:
+            p = models.Project.query.get(project_id)
+            if not p:
+                return {'err': 'The project %s doesn\'t exist' % project_id}
+
         with transaction.manager:
-            task = models.Task(description=description, bug_id=bug_id)
+            task = models.Task(
+                description=description,
+                bug_id=bug_id,
+                status=status,
+                priority=priority,
+                idproject=project_id,
+            )
+            if status is not None and status != 'open':
+                task.completed_date = datetime.datetime.now()
             models.DBSession.add(task)
 
         models.DBSession.add(task)
@@ -146,6 +165,10 @@ class TaskCommand(Command):
     @Param('idtask', required=True)
     @Param('description', 'd')
     @Param('bug_id', 'b')
+    @Param('project_id', 'p')
+    @Param('status', 's', type="choice",
+           choices=['open', 'resolved', 'closed'])
+    @Param('priority', 'l', type="choice", choices=['low', 'normal', 'high'])
     def modify(idtask, **kw):
         """Modify a task.
         """
@@ -156,11 +179,20 @@ class TaskCommand(Command):
         done = False
         for k, v in kw.iteritems():
             if v is not None:
-                setattr(task, k, v)
+                if k == 'project_id':
+                    p = models.Project.query.get(v)
+                    if not p:
+                        return {'err': 'The project %s doesn\'t exist' % v}
+                    setattr(task, 'idproject', v)
+                else:
+                    setattr(task, k, v)
                 done = True
-
         if not done:
             return {'err': 'No parameter given!'}
+        if task.status == 'open':
+            task.completed_date = None
+        elif task.status is not None:
+            task.completed_date = datetime.datetime.now()
         with transaction.manager:
             models.DBSession.add(task)
         return {'success': 'The task %s is modified' % idtask}
@@ -185,7 +217,7 @@ def _report(start_date, end_date):
         one_day = False
         s += [colorterm.bold(
             '\nReport from %s to %s:' % (_date_to_str(start_date),
-                                       _date_to_str(end_date)))]
+                                         _date_to_str(end_date)))]
 
     end_date = end_date + datetime.timedelta(days=1)
     rows = models.TaskTime.query.filter(
@@ -281,3 +313,64 @@ class ReportCommand(Command):
         start_date = datetime.datetime.strptime(startdate, date_str_format)
         end_date = datetime.datetime.strptime(enddate, date_str_format)
         return _report(start_date, end_date)
+
+
+class ProjectCommand(Command):
+    __metaclass__ = CommandMeta
+    _command = 'project'
+
+    def ls():
+        """List the projects.
+        """
+        rows = models.Project.query.all()
+        if not rows:
+            return {'msg': 'No project!'}
+
+        table = Table('ID', 'Name', 'Bug_ID')
+        for row in rows:
+            table.add_row({
+                'ID': row.idproject,
+                'Name': row.name,
+                'Bug_ID': row.bug_id,
+            })
+        return {'msg': table.display()}
+
+    @Param('name', required=True)
+    @Param('bug_id', 'b')
+    def add(name, bug_id=None):
+        """Add new task
+        """
+        rows = models.Project.query.filter_by(name=name).all()
+        if rows:
+            return {
+                'err': 'The project exists with id: %i' % rows[0].idproject}
+        with transaction.manager:
+            project = models.Project(
+                name=name,
+                bug_id=bug_id,
+            )
+            models.DBSession.add(project)
+
+        models.DBSession.add(project)
+        return {'success': 'Project %i created.' % project.idproject}
+
+    @Param('idproject', required=True)
+    @Param('name', 'n')
+    @Param('bug_id', 'b')
+    def modify(idproject, **kw):
+        """Add new task
+        """
+        project = models.Project.query.get(idproject)
+        if not project:
+            return {'err': 'The project %s doesn\'t exist!' % idproject}
+
+        done = False
+        for k, v in kw.iteritems():
+            if v is not None:
+                setattr(project, k, v)
+                done = True
+        if not done:
+            return {'err': 'No parameter given!'}
+        with transaction.manager:
+            models.DBSession.add(project)
+        return {'success': 'The project %s is modified' % idproject}
