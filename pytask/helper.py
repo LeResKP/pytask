@@ -15,6 +15,13 @@ class RaiseOptionParser(OptionParser):
     def error(self, msg):
         raise Exception(msg)
 
+    def _add_help_option(self):
+        """Don't display help message
+        """
+        self.add_option("-h", "--help",
+                        action="help",
+                        help="")
+
 
 class Param(object):
     """Decorator to define the function parameters.
@@ -53,7 +60,8 @@ def get_option_parser(func):
         if p.shortcut:
             args = ("-%s" % p.shortcut, "--%s" % p.name)
         parser.add_option(*args, **p.kw)
-    usage = "%s %s" % (func.__name__, ' '.join(required))
+    usage = "pytask %s %s" % (func.__name__,
+                              ' '.join(map(lambda x: "'%s'" % x, required)))
     if has_option:
         usage += " Options"
     parser.usage = usage
@@ -75,6 +83,10 @@ class CommandMeta(type):
                 if getattr(v, '_params', None):
                     v._parser = get_option_parser(v)
                     v._nb_required = len([p for p in v._params if p.required])
+                else:
+                    v._parser = RaiseOptionParser(add_help_option=False)
+                    v._parser.usage = 'pytask %s' % v.__name__
+                    v._nb_required = 0
                 dic[k] = staticmethod(v)
                 commands += [v.__name__]
         dic['_commands'] = commands

@@ -36,10 +36,11 @@ class Command(object):
     @classmethod
     def usage(cls):
         s = []
-        s += ['%s commands:' % cls._command]
-        for c in cls._commands:
+        s += ['\n%s commands:\n' % colorterm.bold(cls._command)]
+        for c in sorted(cls._commands):
             func = getattr(cls, c)
-            s += ['    %s: %s' % (c, func.__doc__.strip())]
+            s += ['    %s: %s\n' % (colorterm.bold(c),
+                                    func.__doc__.strip())]
             if func._parser:
                 s += [indent(func._parser.format_help(), 8)]
         return '\n'.join(s)
