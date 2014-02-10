@@ -11,8 +11,10 @@ _cmd_cfg=(
     'stop alias'
     'start alias'
     'add alias'
+    'today alias'
     'ls alias'
     'active alias'
+    'projects alias'
 )
 
 for cfg in "${_cmd_cfg[@]}" ; do

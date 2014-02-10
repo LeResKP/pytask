@@ -215,6 +215,7 @@ class TaskCommand(Command):
         return {'success': 'The task %s is modified' % idtask}
 
     projects = alias('project ls', 'ProjectCommand.ls')
+    today = alias('report today', 'ReportCommand.today')
 
 
 def _report(start_date, end_date):
