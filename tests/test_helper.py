@@ -72,7 +72,17 @@ class TestHelper(unittest.TestCase):
         self.assertEqual(TestMeta._commands, ['test', 'test1'])
         self.assertTrue(TestMeta.test._parser)
         self.assertEqual(TestMeta.test._nb_required, 1)
-        self.assertEqual(TestMeta.test1._parser, None)
+        self.assertTrue(TestMeta.test1._parser)
 
         res = TestMeta.test()
         self.assertEqual(res, 'Hello world')
+
+    def test_command_alias(self):
+
+        class TestMeta(object):
+            __metaclass__ = helper.CommandMeta
+
+            test1 = helper.alias('test command', 'ProjectCommand.ls')
+        self.assertTrue(TestMeta.test1._parser)
+        res = TestMeta.test1()
+        self.assertEqual(res, {'msg': 'No project!'})

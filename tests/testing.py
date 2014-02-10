@@ -7,6 +7,7 @@ class DBTestCase(unittest.TestCase):
 
     def setUp(self):
         engine = create_engine('sqlite://')
+        models.DBSession.remove()
         models.DBSession.configure(bind=engine)
         models.Base.metadata.create_all(engine)
 

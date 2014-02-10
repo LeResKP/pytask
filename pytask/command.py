@@ -1,5 +1,5 @@
 from colorterm import colorterm, Table
-from .helper import CommandMeta, Param, indent
+from .helper import CommandMeta, Param, indent, alias
 from . import models
 from .conf import config
 import transaction
@@ -39,8 +39,11 @@ class Command(object):
         s += ['\n%s commands:\n' % colorterm.bold(cls._command)]
         for c in sorted(cls._commands):
             func = getattr(cls, c)
-            s += ['    %s: %s\n' % (colorterm.bold(c),
-                                    func.__doc__.strip())]
+            if getattr(func, '_alias', False):
+                doc = "Alias for '%s'" % func._alias
+            else:
+                doc = func.__doc__.strip()
+            s += ['    %s: %s\n' % (colorterm.bold(c), doc)]
             if func._parser:
                 s += [indent(func._parser.format_help(), 8)]
         return '\n'.join(s)
@@ -210,6 +213,8 @@ class TaskCommand(Command):
         with transaction.manager:
             models.DBSession.add(task)
         return {'success': 'The task %s is modified' % idtask}
+
+    projects = alias('project ls', 'ProjectCommand.ls')
 
 
 def _report(start_date, end_date):

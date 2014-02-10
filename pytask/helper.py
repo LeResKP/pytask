@@ -23,6 +23,21 @@ class RaiseOptionParser(OptionParser):
                         help="")
 
 
+def alias(cmd, name):
+    """Create an alias for the command named name.
+    cmd is just the name of the real command. (Use for the help)
+    """
+    fname = 'command.%s' % name
+
+    def go(*args, **kw):
+        mod = __import__('pytask')
+        for c in fname.split('.'):
+            mod = getattr(mod, c)
+        return mod(*args, **kw)
+    go._alias = cmd
+    return go
+
+
 class Param(object):
     """Decorator to define the function parameters.
     It will help to generate the help.
@@ -85,9 +100,9 @@ class CommandMeta(type):
                     v._nb_required = len([p for p in v._params if p.required])
                 else:
                     v._parser = RaiseOptionParser(add_help_option=False)
-                    v._parser.usage = 'pytask %s' % v.__name__
+                    v._parser.usage = 'pytask %s' % k
                     v._nb_required = 0
                 dic[k] = staticmethod(v)
-                commands += [v.__name__]
+                commands += [k]
         dic['_commands'] = commands
         return type.__new__(mcs, name, bases, dic)

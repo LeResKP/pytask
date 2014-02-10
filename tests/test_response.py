@@ -16,11 +16,11 @@ class TestTaskCommand(testing.DBTestCase):
         self.assertEqual(res, {'msg': 'No task!'})
 
         res = response.execute(['prog', 'add'])
-        self.assertTrue('Usage: add description' in res['err'])
+        self.assertTrue("Usage: pytask add 'description'" in res['err'])
         self.assertTrue('Missing parameter!' in res['err'])
 
         res = response.execute(['prog', 'add', '-t'])
-        self.assertTrue('Usage: add description' in res['err'])
+        self.assertTrue("Usage: pytask add 'description'" in res['err'])
         self.assertTrue('no such option: -t' in res['err'])
 
         res = response.execute(['prog', 'add', 'my', 'task'])
