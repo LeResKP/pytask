@@ -29,15 +29,15 @@ class TestFunctions(testing.DBTestCase):
             creation_date=datetime.datetime.now()
         )
         tasktime = models.TaskTime(
-            start_date=datetime.datetime(2013, 2, 8, 9),
-            end_date=datetime.datetime(2013, 2, 8, 14),
+            start_date=datetime.datetime(2014, 2, 8, 9),
+            end_date=datetime.datetime(2014, 2, 8, 14),
             task=task,
         )
         models.DBSession.add(tasktime)
 
         res = command._report(
-            datetime.datetime(2013, 2, 7),
-            datetime.datetime(2013, 2, 7))
+            datetime.datetime(2014, 2, 7),
+            datetime.datetime(2014, 2, 7))
         self.assertEqual(res, {'err': 'No task done for the period'})
         self.assertFalse('Task 1' in res)
 
@@ -49,29 +49,29 @@ class TestFunctions(testing.DBTestCase):
 
         # (1)
         res = command._report(
-            datetime.datetime(2013, 2, 8),
-            datetime.datetime(2013, 2, 8))
+            datetime.datetime(2014, 2, 8),
+            datetime.datetime(2014, 2, 8))
         self.assertEqual(len(res), 1)
         self.assertTrue('Task 1' in res['msg'])
 
         # (2)
         res = command._report(
-            datetime.datetime(2013, 2, 8),
-            datetime.datetime(2013, 2, 8, 12))
+            datetime.datetime(2014, 2, 8),
+            datetime.datetime(2014, 2, 8, 12))
         self.assertEqual(len(res), 1)
         self.assertTrue('Task 1' in res['msg'])
 
         # (3)
         res = command._report(
-            datetime.datetime(2013, 2, 8, 12),
-            datetime.datetime(2013, 2, 9))
+            datetime.datetime(2014, 2, 8, 12),
+            datetime.datetime(2014, 2, 9))
         self.assertEqual(len(res), 1)
         self.assertTrue('Task 1' in res['msg'])
 
         # (4)
         res = command._report(
-            datetime.datetime(2013, 2, 8, 11),
-            datetime.datetime(2013, 2, 8, 12))
+            datetime.datetime(2014, 2, 8, 11),
+            datetime.datetime(2014, 2, 8, 12))
         self.assertEqual(len(res), 1)
         self.assertTrue('Task 1' in res['msg'])
 
@@ -79,10 +79,16 @@ class TestFunctions(testing.DBTestCase):
         tasktime.end_date = None
         models.DBSession.add(tasktime)
         res = command._report(
-            datetime.datetime(2013, 2, 8),
-            datetime.datetime(2013, 2, 9))
+            datetime.datetime(2014, 2, 8),
+            datetime.datetime(2014, 2, 9))
         self.assertEqual(len(res), 1)
         self.assertTrue('Task 1' in res['msg'])
+
+        res = command._report(
+            (datetime.datetime.now() + datetime.timedelta(days=1)),
+            (datetime.datetime.now() + datetime.timedelta(days=2))
+        )
+        self.assertEqual(res, {'err': 'Can\'t make report in the future'})
 
 
 class TestTaskCommand(testing.DBTestCase):

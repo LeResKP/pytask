@@ -221,6 +221,9 @@ class TaskCommand(Command):
 def _report(start_date, end_date):
     """Make a report on the done between the given date
     """
+    if start_date > datetime.datetime.now():
+        return {'err': 'Can\'t make report in the future'}
+
     s = []
     if start_date == end_date:
         one_day = True
@@ -270,7 +273,6 @@ def _report(start_date, end_date):
     s += [table.display()]
 
     if one_day:
-
         keys = [k.replace('_', ' ')
                 for k in config.get('report', 'detail_format').split(' ')]
         detail = Table(*keys)
@@ -283,6 +285,8 @@ def _report(start_date, end_date):
         d = (end_date - start_date).days
         for i in range(d):
             d = start_date + datetime.timedelta(i)
+            if d > datetime.datetime.now():
+                continue
             res = _report(d, d)
             if 'msg' in res:
                 sub = res['msg']
