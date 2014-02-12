@@ -81,7 +81,7 @@ class TaskCommand(Command):
             convert = None
             if tasktime and tasktime.idtask == row.idtask:
                 convert = colorterm.cyan
-            table.add_row(row.get_data_for_display(), convert)
+            table.add_row(row.get_data_for_display(_date_to_str), convert)
         return {'msg': table.display()}
 
     @Param('description', required=True)
@@ -172,17 +172,28 @@ class TaskCommand(Command):
         task = models.Task.query.get(idtask)
         if not task:
             return {'err': 'The task %s doesn\'t exist!' % idtask}
-        s = ['Task %s:' % idtask]
-        s += ['Description: %s' % task.description]
+
+        dic = task.get_data_for_display(_date_to_str)
+        s = ['']
+        for key in ['ID', 'Bug ID', 'Project', 'Description', 'Status',
+                    'Priority', 'Creation', 'Completed']:
+
+            s += [colorterm.underline(key) + ': %s\n' % dic[key]]
+
+        # s += [colorterm.underline('Task') + ': %s\n' % idtask]
+        # s += [colorterm.underline('Description') + ': %s\n' % task.description]
         tasktimes = models.TaskTime.query.filter_by(idtask=idtask).all()
         if tasktimes:
-            s += ['Duration:']
+            s += [colorterm.underline('Duration') + ':']
+
+        sub = []
         for tasktime in tasktimes:
             if tasktime.end_date:
-                s += ['%s - %s' % (tasktime.start_date,
-                                   tasktime.end_date)]
+                sub += ['%s - %s' % (_date_to_str(tasktime.start_date),
+                                   _date_to_str(tasktime.end_date))]
             else:
-                s += ['active from %s' % tasktime.start_date]
+                sub += ['active from %s' % _date_to_str(tasktime.start_date)]
+        s += ['\n'.join(sub)]
         return {'msg': '\n'.join(s)}
 
     def active():
@@ -273,6 +284,7 @@ def _report(start_date, end_date, **kw):
         # NOTE: start is used to sort the data
         detail_data += [(start,
                          row.task.get_data_for_display(
+                             _date_to_str,
                              Start=_date_to_time(start),
                              End=(end and _date_to_time(end) or 'active'),
                              Duration=round(duration, 1)))]
@@ -282,7 +294,9 @@ def _report(start_date, end_date, **kw):
     table = Table(*keys)
     for idtask in sorted(durations.keys()):
         task = tasks[idtask]
-        data = task.get_data_for_display(Duration=round(duration, 1))
+        data = task.get_data_for_display(
+            _date_to_str,
+            Duration=round(duration, 1))
         table.add_row(data)
     s += [table.display()]
 

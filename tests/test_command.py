@@ -244,7 +244,7 @@ class TestTaskCommand(testing.DBTestCase):
         models.DBSession.add(task)
         res = command.TaskCommand.info(1)
         self.assertEqual(len(res), 1)
-        self.assertTrue('Task 1:' in res['msg'])
+        self.assertTrue('ID: 1' in res['msg'])
         self.assertTrue('Duration:' not in res['msg'])
 
         tasktime = models.TaskTime(start_date=datetime.datetime.now())
@@ -253,7 +253,7 @@ class TestTaskCommand(testing.DBTestCase):
 
         res = command.TaskCommand.info(1)
         self.assertEqual(len(res), 1)
-        self.assertTrue('Task 1:' in res['msg'])
+        self.assertTrue('ID: 1' in res['msg'])
         self.assertTrue('Duration:' in res['msg'])
 
     def test_active(self):
@@ -266,7 +266,7 @@ class TestTaskCommand(testing.DBTestCase):
         models.DBSession.add(task)
         res = command.TaskCommand.active()
         self.assertEqual(len(res), 1)
-        self.assertTrue('Task 1:' in res['msg'])
+        self.assertTrue('ID: 1' in res['msg'])
 
     def test_modify(self):
         res = command.TaskCommand.modify(1)

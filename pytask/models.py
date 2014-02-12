@@ -55,7 +55,7 @@ class Task(Base):
     times = relationship('TaskTime', backref=backref("task", uselist=False))
     project = relationship('Project', backref="tasks", uselist=False)
 
-    def get_data_for_display(self, **kw):
+    def get_data_for_display(self, _date_to_str, **kw):
         """Returns the data for the display of a task in 'table'
         """
         bug_id = self.bug_id
@@ -68,8 +68,9 @@ class Task(Base):
             'Description': self.description,
             'Status': self.status,
             'Priority': self.priority,
-            'Creation': self.creation_date,
-            'Completed': self.completed_date,
+            'Creation': _date_to_str(self.creation_date),
+            'Completed': (self.completed_date and
+                          _date_to_str(self.completed_date) or None),
         }
         dic.update(kw)
         return dic
