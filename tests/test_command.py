@@ -4,6 +4,7 @@ import pytask.models as models
 import datetime
 import transaction
 from mock import patch
+from pytask.conf import config
 
 
 class TestFunctions(testing.DBTestCase):
@@ -89,6 +90,41 @@ class TestFunctions(testing.DBTestCase):
             (datetime.datetime.now() + datetime.timedelta(days=2))
         )
         self.assertEqual(res, {'err': 'Can\'t make report in the future'})
+
+    def test__report_with_format(self):
+        task = models.Task(
+            description='Task 1',
+            creation_date=datetime.datetime.now()
+        )
+        tasktime = models.TaskTime(
+            start_date=datetime.datetime(2014, 2, 8, 9),
+            end_date=datetime.datetime(2014, 2, 8, 14),
+            task=task,
+        )
+        models.DBSession.add(tasktime)
+
+        res = command._report(
+            datetime.datetime(2014, 2, 8),
+            datetime.datetime(2014, 2, 8))
+        self.assertEqual(len(res), 1)
+        self.assertTrue('Task 1' in res['msg'])
+        self.assertEqual(res['msg'].count('ID'), 4)
+        self.assertEqual(res['msg'].count('Bug ID'), 2)
+
+        config.add_section('new_report')
+        config.set('new_report', 'format', 'Bug_ID Duration')
+        config.set('new_report', 'detail_format', '')
+
+        res = command._report(
+            datetime.datetime(2014, 2, 8),
+            datetime.datetime(2014, 2, 8),
+            format='new')
+        self.assertEqual(len(res), 1)
+        self.assertTrue('Task 1' not in res['msg'])
+        # There is no details and we don't display the ID
+        self.assertEqual(res['msg'].count('ID'), 1)
+        self.assertEqual(res['msg'].count('Bug ID'), 1)
+        config.remove_section('new_report')
 
 
 class TestTaskCommand(testing.DBTestCase):
@@ -288,6 +324,17 @@ class TestReportCommand(testing.DBTestCase):
             mock_report.assert_called_with(mock_dt(2014, 2, 8),
                                            mock_dt(2014, 2, 8))
 
+    def test_today_with_format(self):
+        from datetime import datetime
+        with patch('datetime.datetime') as mock_dt:
+            mock_dt.now.return_value = datetime(2014, 2, 8, 12, 0, 0)
+            mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            with patch('pytask.command._report') as mock_report:
+                command.ReportCommand.today(format='new')
+            mock_report.assert_called_with(mock_dt(2014, 2, 8),
+                                           mock_dt(2014, 2, 8),
+                                           format='new')
+
     def test_week(self):
         from datetime import datetime
 
@@ -315,6 +362,18 @@ class TestReportCommand(testing.DBTestCase):
             mock_report.assert_called_with(mock_dt(2014, 2, 10),
                                            mock_dt(2014, 2, 14))
 
+    def test_week_with_format(self):
+        from datetime import datetime
+
+        with patch('datetime.datetime') as mock_dt:
+            mock_dt.now.return_value = datetime(2014, 2, 2, 12, 0, 0)
+            mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            with patch('pytask.command._report') as mock_report:
+                command.ReportCommand.week(format='new')
+            mock_report.assert_called_with(mock_dt(2014, 1, 27),
+                                           mock_dt(2014, 1, 31),
+                                           format='new')
+
     def test_date(self):
         from datetime import datetime
 
@@ -326,6 +385,18 @@ class TestReportCommand(testing.DBTestCase):
             # NOTE: same date because of the mock
             mock_report.assert_called_with(mock_dt(2014, 2, 3),
                                            mock_dt(2014, 2, 3))
+
+    def test_date_with_format(self):
+        from datetime import datetime
+
+        with patch('datetime.datetime') as mock_dt:
+            mock_dt.strptime.return_value = datetime(2014, 2, 3, 0, 0, 0)
+            mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            with patch('pytask.command._report') as mock_report:
+                command.ReportCommand.date('2014/02/03', '2014/02/07', format='new')
+            # NOTE: same date because of the mock
+            mock_report.assert_called_with(mock_dt(2014, 2, 3),
+                                           mock_dt(2014, 2, 3), format='new')
 
 
 class TestProjectCommand(testing.DBTestCase):

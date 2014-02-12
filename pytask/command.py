@@ -2,6 +2,7 @@ from colorterm import colorterm, Table
 from .helper import CommandMeta, Param, indent, alias
 from . import models
 from .conf import config
+import ConfigParser
 import transaction
 import sqlalchemy.orm.exc as sqla_exc
 from sqlalchemy import or_
@@ -17,17 +18,30 @@ def get_active_tasktime():
         return None
 
 
+def get_report_config(param, section=None):
+    """Get the report config corresponding to the given param
+    """
+    if not section:
+        section = config.get('report', 'section')
+    else:
+        section += '_report'
+    try:
+        return config.get(section, param)
+    except ConfigParser.NoOptionError:
+        return config.get('default_report', param)
+
+
 def _date_to_time(d):
     """Display the time of the given date
     """
-    f = config.get('report', 'time_format')
+    f = get_report_config('time_format')
     return d.strftime(f)
 
 
 def _date_to_str(d):
     """Display given date as str
     """
-    f = config.get('report', 'date_format')
+    f = get_report_config('date_format')
     return d.strftime(f)
 
 
@@ -218,7 +232,7 @@ class TaskCommand(Command):
     today = alias('report today', 'ReportCommand.today')
 
 
-def _report(start_date, end_date):
+def _report(start_date, end_date, **kw):
     """Make a report on the done between the given date
     """
     if start_date > datetime.datetime.now():
@@ -264,7 +278,7 @@ def _report(start_date, end_date):
                              Duration=round(duration, 1)))]
 
     keys = [k.replace('_', ' ')
-            for k in config.get('report', 'format').split(' ')]
+            for k in get_report_config('format', kw.get('format')).split(' ')]
     table = Table(*keys)
     for idtask in sorted(durations.keys()):
         task = tasks[idtask]
@@ -272,14 +286,16 @@ def _report(start_date, end_date):
         table.add_row(data)
     s += [table.display()]
 
+    detail_format = get_report_config('detail_format', kw.get('format'))
     if one_day:
-        keys = [k.replace('_', ' ')
-                for k in config.get('report', 'detail_format').split(' ')]
-        detail = Table(*keys)
-        for start, dic in sorted(detail_data):
-            detail.add_row(dic)
+        if detail_format:
+            keys = [k.replace('_', ' ')
+                    for k in detail_format.split(' ')]
+            detail = Table(*keys)
+            for start, dic in sorted(detail_data):
+                detail.add_row(dic)
 
-        s += ['%s' % detail.display()]
+            s += ['%s' % detail.display()]
     else:
         s += [colorterm.bold('\nDetails of the report:')]
         d = (end_date - start_date).days
@@ -287,7 +303,7 @@ def _report(start_date, end_date):
             d = start_date + datetime.timedelta(i)
             if d > datetime.datetime.now():
                 continue
-            res = _report(d, d)
+            res = _report(d, d, **kw)
             if 'msg' in res:
                 sub = res['msg']
             else:
@@ -300,15 +316,17 @@ class ReportCommand(Command):
     __metaclass__ = CommandMeta
     _command = 'report'
 
-    def today():
+    @Param('format', 'f')
+    def today(**kw):
         """Create a report of the done of today.
         """
         now = datetime.datetime.now()
         start_date = now.replace(minute=0, hour=0, second=0, microsecond=0)
         end_date = start_date
-        return _report(start_date, end_date)
+        return _report(start_date, end_date, **kw)
 
-    def week():
+    @Param('format', 'f')
+    def week(**kw):
         """Create a report of the done of the week.
         We start from the last monday to the friday of the same week.
         """
@@ -316,17 +334,18 @@ class ReportCommand(Command):
         now = now.replace(minute=0, hour=0, second=0, microsecond=0)
         start_date = now + datetime.timedelta(days=-now.weekday())
         end_date = start_date + datetime.timedelta(days=4)
-        return _report(start_date, end_date)
+        return _report(start_date, end_date, **kw)
 
     @Param('startdate', required=True)
     @Param('enddate', required=True)
-    def date(startdate, enddate):
+    @Param('format', 'f')
+    def date(startdate, enddate, **kw):
         """Create a report between given dates.
         """
         date_str_format = '%Y/%m/%d'
         start_date = datetime.datetime.strptime(startdate, date_str_format)
         end_date = datetime.datetime.strptime(enddate, date_str_format)
-        return _report(start_date, end_date)
+        return _report(start_date, end_date, **kw)
 
 
 class ProjectCommand(Command):

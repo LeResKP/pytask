@@ -58,9 +58,12 @@ class Task(Base):
     def get_data_for_display(self, **kw):
         """Returns the data for the display of a task in 'table'
         """
+        bug_id = self.bug_id
+        if not bug_id and self.project:
+            bug_id = self.project.bug_id
         dic = {
             'ID': self.idtask,
-            'Bug ID': self.bug_id,
+            'Bug ID': bug_id and '#%s' % bug_id or None,
             'Project': self.project and self.project.name or '',
             'Description': self.description,
             'Status': self.status,
