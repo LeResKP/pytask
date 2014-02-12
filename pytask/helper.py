@@ -27,13 +27,20 @@ def alias(cmd, name):
     """Create an alias for the command named name.
     cmd is just the name of the real command. (Use for the help)
     """
-    fname = 'command.%s' % name
-
-    def go(*args, **kw):
+    # TODO: this part of loading function from string should be improved
+    def get_function():
         mod = __import__('pytask')
         for c in fname.split('.'):
             mod = getattr(mod, c)
+        return mod
+
+    fname = 'command.%s' % name
+
+    def go(*args, **kw):
+        mod = get_function()
         return mod(*args, **kw)
+
+    go._alias_func = get_function
     go._alias = cmd
     return go
 

@@ -54,11 +54,12 @@ def execute(argv=sys.argv):
         return {'err': 'Command %s not found!' % cmd}
 
     func = getattr(command_class, cmd)
-    if not func._parser:
-        return func()
+    parser = func._parser
+    if getattr(func, '_alias', None):
+        parser = func._alias_func()._parser
 
     try:
-        (options, args) = func._parser.parse_args(argv[consume:])
+        (options, args) = parser.parse_args(argv[consume:])
     except Exception, e:
         return {'err': '%s\nError: %s' % (
             func._parser.format_help(),
@@ -66,7 +67,7 @@ def execute(argv=sys.argv):
     nb = func._nb_required
     if len(args) < nb:
         return {
-            'err': '%s\nError: Missing parameter!' % func._parser.format_help()
+            'err': '%s\nError: Missing parameter!' % parser.format_help()
         }
 
     tmp = args[:nb]
