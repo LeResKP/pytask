@@ -317,15 +317,19 @@ class ReportCommand(Command):
     _command = 'report'
 
     @Param('format', 'f')
+    @Param('delta', 'd')
     def today(**kw):
         """Create a report of the done of today.
         """
         now = datetime.datetime.now()
         start_date = now.replace(minute=0, hour=0, second=0, microsecond=0)
+        if kw.get('delta'):
+            start_date = start_date - datetime.timedelta(days=int(kw['delta']))
         end_date = start_date
         return _report(start_date, end_date, **kw)
 
     @Param('format', 'f')
+    @Param('delta', 'd')
     def week(**kw):
         """Create a report of the done of the week.
         We start from the last monday to the friday of the same week.
@@ -333,6 +337,10 @@ class ReportCommand(Command):
         now = datetime.datetime.now()
         now = now.replace(minute=0, hour=0, second=0, microsecond=0)
         start_date = now + datetime.timedelta(days=-now.weekday())
+        delta = kw.get('delta')
+        if delta:
+            delta = int(delta) * 7
+            start_date = start_date - datetime.timedelta(days=delta)
         end_date = start_date + datetime.timedelta(days=4)
         return _report(start_date, end_date, **kw)
 

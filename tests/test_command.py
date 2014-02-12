@@ -335,6 +335,17 @@ class TestReportCommand(testing.DBTestCase):
                                            mock_dt(2014, 2, 8),
                                            format='new')
 
+    def test_today_delta(self):
+        from datetime import datetime
+        with patch('datetime.datetime') as mock_dt:
+            mock_dt.now.return_value = datetime(2014, 2, 8, 12, 0, 0)
+            mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            with patch('pytask.command._report') as mock_report:
+                command.ReportCommand.today(delta=2)
+            mock_report.assert_called_with(mock_dt(2014, 2, 6),
+                                           mock_dt(2014, 2, 6),
+                                           delta=2)
+
     def test_week(self):
         from datetime import datetime
 
@@ -373,6 +384,18 @@ class TestReportCommand(testing.DBTestCase):
             mock_report.assert_called_with(mock_dt(2014, 1, 27),
                                            mock_dt(2014, 1, 31),
                                            format='new')
+
+    def test_week_delta(self):
+        from datetime import datetime
+
+        with patch('datetime.datetime') as mock_dt:
+            mock_dt.now.return_value = datetime(2014, 2, 2, 12, 0, 0)
+            mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            with patch('pytask.command._report') as mock_report:
+                command.ReportCommand.week(delta=2)
+            mock_report.assert_called_with(mock_dt(2014, 1, 13),
+                                           mock_dt(2014, 1, 17),
+                                           delta=2)
 
     def test_date(self):
         from datetime import datetime
