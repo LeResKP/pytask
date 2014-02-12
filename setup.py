@@ -25,7 +25,10 @@ setup(name='pytask',
       include_package_data=True,
       zip_safe=False,
       install_requires=[
-          'colorterm'
+          'colorterm',
+          'sqla_declarative',
+          'SQLAlchemy',
+          'transaction',
       ],
       test_suite='nose.collector',
       tests_require=[
