@@ -275,7 +275,11 @@ def _report(start_date, end_date, **kw):
     for row in rows:
         start = max(start_date, row.start_date)
         end = min(end_date, row.end_date or datetime.datetime.now())
-        duration = ((end - start).total_seconds() / 3600)
+        try:
+            duration = ((end - start).total_seconds() / 3600)
+        except:
+            total_duration_in_seconds = lambda td: td.days * 24 * 60 * 60 + td.seconds
+            duration = (total_duration_in_seconds((end - start)) / 3600.0)
         durations.setdefault(row.idtask, 0)
         durations[row.idtask] += duration
         if not row.end_date:
@@ -296,7 +300,7 @@ def _report(start_date, end_date, **kw):
         task = tasks[idtask]
         data = task.get_data_for_display(
             _date_to_str,
-            Duration=round(duration, 1))
+            Duration=round(durations[idtask], 1))
         table.add_row(data)
     s += [table.display()]
 
