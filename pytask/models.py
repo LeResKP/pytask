@@ -3,6 +3,7 @@ from sqlalchemy import (
     Integer,
     String,
     DateTime,
+    Boolean,
     create_engine,
     ForeignKey,
 )
@@ -87,3 +88,12 @@ class TaskTime(Base):
     start_date = Column(DateTime, nullable=False,
                         default=datetime.datetime.now)
     end_date = Column(DateTime, nullable=True)
+
+
+class Status(Base):
+    idstatus = Column(Integer,
+                      nullable=False,
+                      autoincrement=True,
+                      primary_key=True)
+
+    active = Column(Boolean, nullable=True)
