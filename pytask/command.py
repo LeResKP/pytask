@@ -373,6 +373,58 @@ class ReportCommand(Command):
         end_date = datetime.datetime.strptime(enddate, date_str_format)
         return _report(start_date, end_date, **kw)
 
+    @Param('startdate', required=True)
+    @Param('enddate', required=True)
+    def a9(startdate, enddate):
+        date_str_format = '%Y/%m/%d'
+        start_date = datetime.datetime.strptime(startdate, date_str_format)
+        end_date = datetime.datetime.strptime(enddate, date_str_format)
+
+        if start_date > datetime.datetime.now():
+            return {'err': 'Can\'t make report in the future'}
+
+        s = []
+        end_date = end_date + datetime.timedelta(days=1)
+        rows = models.TaskTime.query.filter(
+            or_(start_date < models.TaskTime.end_date,
+                models.TaskTime.end_date == None)).filter(
+            models.TaskTime.start_date < end_date
+        ).all()
+
+        lis = []
+        dic = {}
+        for row in rows:
+            start = max(start_date, row.start_date)
+            end = min(end_date, row.end_date or datetime.datetime.now())
+            try:
+                duration = ((end - start).total_seconds() / 3600)
+            except:
+                total_duration_in_seconds = lambda td: td.days * 24 * 60 * 60 + td.seconds
+                duration = (total_duration_in_seconds((end - start)) / 3600.0)
+
+            bug_id = row.task.bug_id
+            if not bug_id and row.task.project:
+                bug_id = row.task.project.bug_id
+            assert(bug_id), row.task.description
+            s = '%(startdate)s-+0200 +%(duration)sh # %(description)s' % {
+                'startdate': start.strftime('%Y-%m-%d-%H:%M:%S'),
+                'duration': round(duration, 1),
+                'description': row.task.description,
+            }
+            dic.setdefault(bug_id, []).append(s)
+
+        lis = ['supplement resource Aurelien {']
+        for bud_id, values in dic.iteritems():
+            if bug_id == 'reactivity':
+                lis += ['  plan:booking postrms.reactivity_weekly']
+            else:
+                lis += ['  plan:booking postrms.issue_%s' % bud_id]
+            for v in values:
+                lis += ['   %s' % v]
+            lis += ['']
+        lis += ['}']
+        return {'msg': "\n".join(lis)}
+
 
 class ProjectCommand(Command):
     __metaclass__ = CommandMeta
