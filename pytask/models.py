@@ -17,13 +17,18 @@ from sqlalchemy.orm import (
 
 from zope.sqlalchemy import ZopeTransactionExtension
 from sqla_declarative import extended_declarative_base
+import transaction
 
 import datetime
 
 
 DBSession = scoped_session(sessionmaker(extension=ZopeTransactionExtension()))
 Base = extended_declarative_base(DBSession)
-engine = create_engine('sqlite:///pytask.db', echo=False)
+engine = create_engine('sqlite:///pytask1.db', echo=False)
+# engine = create_engine('sqlite:///gg.db', echo=False)
+# Migration
+# ALTER TABLE task ADD COLUMN bug_id VARVHAR(255);
+# ALTER TABLE project ADD COLUMN bug_id VARVHAR(255);
 DBSession.configure(bind=engine)
 Base.metadata.bind = engine
 
@@ -76,6 +81,24 @@ class Task(Base):
         dic.update(kw)
         return dic
 
+    def set_active(self):
+        active_tasktime = get_active_tasktime()
+        if active_tasktime and active_tasktime.idtask == self.idtask:
+            return False
+        with transaction.manager:
+            if active_tasktime:
+                active_tasktime.end_date = datetime.datetime.now()
+                DBSession.add(active_tasktime)
+                active_tasktime.task.status = ''
+                DBSession.add(active_tasktime.task)
+
+            tasktime = TaskTime(idtask=self.idtask,
+                                start_date=datetime.datetime.now())
+            self.status = 'ACTIVE'
+            DBSession.add(tasktime)
+            DBSession.add(self)
+        return True
+
 
 class TaskTime(Base):
     idtasktime = Column(Integer,
@@ -97,3 +120,13 @@ class Status(Base):
                       primary_key=True)
 
     active = Column(Boolean, nullable=True)
+
+
+def get_active_tasktime():
+    """Get the active TaskTime if we have one
+    """
+    try:
+        return TaskTime.query.filter_by(end_date=None).one()
+    except sqla_exc.NoResultFound:
+        return None
+

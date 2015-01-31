@@ -1,21 +1,13 @@
 from colorterm import colorterm, Table
 from .helper import CommandMeta, Param, indent, alias
 from . import models
+from .models import get_active_tasktime
 from .conf import config
 import ConfigParser
 import transaction
 import sqlalchemy.orm.exc as sqla_exc
 from sqlalchemy import or_
 import datetime
-
-
-def get_active_tasktime():
-    """Get the active TaskTime if we have one
-    """
-    try:
-        return models.TaskTime.query.filter_by(end_date=None).one()
-    except sqla_exc.NoResultFound:
-        return None
 
 
 def get_report_config(param, section=None):
