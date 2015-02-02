@@ -5,7 +5,6 @@ from .models import get_active_tasktime
 from .conf import config
 import ConfigParser
 import transaction
-import sqlalchemy.orm.exc as sqla_exc
 from sqlalchemy import or_
 import datetime
 

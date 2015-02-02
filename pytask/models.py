@@ -15,6 +15,8 @@ from sqlalchemy.orm import (
     relationship,
 )
 
+import sqlalchemy.orm.exc as sqla_exc
+
 from zope.sqlalchemy import ZopeTransactionExtension
 from sqla_declarative import extended_declarative_base
 import transaction
