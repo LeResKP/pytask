@@ -57,11 +57,13 @@ class Task(Base):
                            default=datetime.datetime.now)
     completed_date = Column(DateTime, nullable=True)
     priority = Column(String(255), nullable=True)
-    status = Column(String(255), nullable=True)
+    status = Column(String(255), nullable=True, default='open')
     bug_id = Column(String(255), nullable=True)
 
     times = relationship('TaskTime', backref=backref("task", uselist=False))
     project = relationship('Project', backref="tasks", uselist=False)
+
+    JSON_EXPORT_PROPS = ['time_ellapsed', 'project.name']
 
     def get_data_for_display(self, _date_to_str, **kw):
         """Returns the data for the display of a task in 'table'
@@ -120,14 +122,28 @@ class Task(Base):
                 active_tasktime.end_date = datetime.datetime.now()
                 DBSession.add(active_tasktime)
             self.status = 'CLOSED'
+            self.completed_date = datetime.datetime.now()
             DBSession.add(self)
         return True
 
     def set_open(self):
         with transaction.manager:
             self.status = None
+            self.completed_date = None
             DBSession.add(self)
         return True
+
+    def time_ellapsed(self):
+        duration = 0
+        for t in self.times:
+            start = t.start_date
+            end = t.end_date or datetime.datetime.now()
+            try:
+                duration += ((end - start).total_seconds() / 3600)
+            except:
+                total_duration_in_seconds = lambda td: td.days * 24 * 60 * 60 + td.seconds
+                duration += (total_duration_in_seconds((end - start)) / 3600.0)
+        return duration
 
 
 class TaskTime(Base):
