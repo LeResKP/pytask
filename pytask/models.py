@@ -101,6 +101,34 @@ class Task(Base):
             DBSession.add(self)
         return True
 
+    def set_inactive(self):
+        active_tasktime = get_active_tasktime()
+        if not active_tasktime or active_tasktime.idtask != self.idtask:
+            return False
+
+        with transaction.manager:
+            active_tasktime.end_date = datetime.datetime.now()
+            DBSession.add(active_tasktime)
+            self.status = None
+            DBSession.add(self)
+        return True
+
+    def set_closed(self):
+        active_tasktime = get_active_tasktime()
+        with transaction.manager:
+            if active_tasktime and active_tasktime.idtask == self.idtask:
+                active_tasktime.end_date = datetime.datetime.now()
+                DBSession.add(active_tasktime)
+            self.status = 'CLOSED'
+            DBSession.add(self)
+        return True
+
+    def set_open(self):
+        with transaction.manager:
+            self.status = None
+            DBSession.add(self)
+        return True
+
 
 class TaskTime(Base):
     idtasktime = Column(Integer,
