@@ -143,7 +143,10 @@ class Task(Base):
             except:
                 total_duration_in_seconds = lambda td: td.days * 24 * 60 * 60 + td.seconds
                 duration += (total_duration_in_seconds((end - start)) / 3600.0)
-        return duration
+
+        hour = int(duration)
+        minute = (duration - hour) * 60
+        return '%02ih%02i' % (hour, minute)
 
 
 class TaskTime(Base):
